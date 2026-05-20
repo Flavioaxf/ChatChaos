@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Screen, Role } from "@/src/app/page";
-import { PlayerStatusBar } from "../ui/player-status-bar";
+import { PlayerStatusBar } from "../../ui/player-status-bar";
 
 interface GameScreenProps {
   onNavigate: (screen: Screen) => void;

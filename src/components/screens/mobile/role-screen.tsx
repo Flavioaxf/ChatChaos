@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { Screen, Role } from "@/src/app/page";
-import { PlayerStatusBar } from "../ui/player-status-bar";
+import { PlayerStatusBar } from "../../ui/player-status-bar";
 
 interface RoleScreenProps {
   onNavigate: (screen: Screen) => void;

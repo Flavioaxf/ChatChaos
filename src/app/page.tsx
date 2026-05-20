@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { LobbyScreen } from "@/src/components/screens/lobby-screen";
-import { ThemeVotingScreen } from "@/src/components/screens/theme-voting-screen";
-import { RoleScreen } from "@/src/components/screens/role-screen";
-import { GameScreen } from "@/src/components/screens/game-screen";
-import { WordVotingScreen } from "@/src/components/screens/word-voting-screen";
-import { ResultsScreen } from "@/src/components/screens/results-screen";
+import { LobbyScreen } from "@/src/components/screens/mobile/lobby-screen";
+import { ThemeVotingScreen } from "@/src/components/screens/mobile/theme-voting-screen";
+import { RoleScreen } from "@/src/components/screens/mobile/role-screen";
+import { GameScreen } from "@/src/components/screens/mobile/game-screen";
+import { WordVotingScreen } from "@/src/components/screens/mobile/word-voting-screen";
+import { ResultsScreen } from "@/src/components/screens/mobile/results-screen";
 
 export type Screen =
   | "lobby"
