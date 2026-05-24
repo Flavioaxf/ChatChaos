@@ -65,7 +65,7 @@ export function RoleScreen({ onNavigate, selectedRole, onSelectRole, playerName 
           Aviso: Confidencial<span className="text-ink cursor-blink">_</span>
         </h1>
         <p className="font-display text-muted text-sm mt-2">
-          // sorteado automaticamente - nao mostre a ninguem
+          {"// sorteado automaticamente - nao mostre a ninguem"}
         </p>
       </div>
 

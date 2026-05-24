@@ -18,7 +18,7 @@ const playerColors = {
   player4: "#C8381E",
 };
 
-const roleLabels: Record<Role, string> = {
+const roleLabels: Record<string, string> = {
   IRRITADO: "CAPS ATIVO",
   HACKEADO: "BINARIO ATIVO",
   MANDARIM: "TRADUCAO ATIVA",

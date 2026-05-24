@@ -95,7 +95,7 @@ export default function TelaoContextScreen({ theme, contextText, players, onSequ
         {/* PASSO 0: O TEMA (Alvo do Hack) */}
         {step === 0 && (
           <div className="text-center animate-fade-in flex flex-col items-center">
-            <span className="font-pixel text-2xl md:text-3xl tracking-widest text-[#888] mb-4">// ESTABELECENDO_ALVO:</span>
+            <span className="font-pixel text-2xl md:text-3xl tracking-widest text-[#888] mb-4">{"// ESTABELECENDO_ALVO:"}</span>
             <div className="bg-[#FF6B35] text-[#1C1C1C] border-[4px] border-[#FF6B35] px-8 py-4 shadow-[8px_8px_0px_#888888] transform -rotate-2">
               <h1 className="font-pixel text-[clamp(3rem,6vw,5rem)] tracking-widest uppercase leading-none">
                 {theme}
