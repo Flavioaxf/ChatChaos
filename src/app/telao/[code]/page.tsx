@@ -23,8 +23,8 @@ export default function TelaoJogoPage() {
   ];
 
   const cursoresSimulados = [
-    { playerId: '1', playerName: 'FLAVIO_AXF', color: '#FF6B35' },
-    { playerId: '2', playerName: 'DUPLA_BACK', color: '#4A90E2' },
+    { playerId: '1', playerName: 'FLAVIO_AXF', color: '#FF6B35', avatar: '(>_<)' },
+    { playerId: '2', playerName: 'DUPLA_BACK', color: '#4A90E2', avatar: '(O_O)' },
   ];
 
   return (
@@ -67,8 +67,9 @@ export default function TelaoJogoPage() {
           currentRound={1}
           activeTeam="TIME_A"
           theme="Grupo da Empresa"
+          contextText="ATIVIDADE SUSPEITA DETECTADA NO SERVIDOR CENTRAL. JUSTIFIQUE IMEDIATAMENTE SUA PRESENÇA OU O SISTEMA OPERACIONAL SERÁ COMPLETAMENTE FORMATADO."
           currentText="REPLY_: Olá chefia, peço desculpas pelo acesso indevido, mas estávamos apenas testando a vulnerabilidade do"
-          timeLeft={32}
+          timeLeft={30}
           activeCursors={cursoresSimulados}
         />
       )}
