@@ -1,64 +1,84 @@
-import { useEffect, useState, useRef } from 'react';
-import { ref, onValue, set, runTransaction } from 'firebase/database';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { ref, onValue, runTransaction, set } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
 
-export const useSharedText = (roomCode: string, uid?: string) => {
-  const [text, setText] = useState('');
-  const [cursors, setCursors] = useState<Record<string, { position: number, nickname: string }>>({});
-  const [isTypingMap, setIsTypingMap] = useState<Record<string, boolean>>({});
-  const [audioFinished, setAudioFinished] = useState(false); 
+export interface CursorData {
+  position: number;
+  nickname: string;
+  color: string;
+}
+
+export const useSharedText = (roomCode: string, uid: string) => {
+  const [currentText, setCurrentText] = useState<string>('');
+  const [cursors, setCursors] = useState<Record<string, CursorData>>({});
+  const [activeTypers, setActiveTypers] = useState<Record<string, boolean>>({});
   
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!roomCode) return;
-    
+
     const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
     const cursorsRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors`);
     const isTypingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping`);
-    const audioRef = ref(rtdb, `rooms/${roomCode}/liveData/audioFinished`);
 
-    // Adicionado os tipos 'any' para satisfazer o compilador restrito
-    const unsubText = onValue(textRef, (snap: any) => setText(snap.val() || ''));
-    const unsubCursors = onValue(cursorsRef, (snap: any) => setCursors(snap.val() || {}));
-    const unsubIsTyping = onValue(isTypingRef, (snap: any) => setIsTypingMap(snap.val() || {}));
-    const unsubAudio = onValue(audioRef, (snap: any) => setAudioFinished(!!snap.val()));
+    const unsubText = onValue(textRef, (snapshot) => {
+      setCurrentText(snapshot.val() || '');
+    });
+
+    const unsubCursors = onValue(cursorsRef, (snapshot) => {
+      setCursors(snapshot.val() || {});
+    });
+
+    const unsubIsTyping = onValue(isTypingRef, (snapshot) => {
+      setActiveTypers(snapshot.val() || {});
+    });
 
     return () => {
-      unsubText(); unsubCursors(); unsubIsTyping(); unsubAudio();
+      unsubText();
+      unsubCursors();
+      unsubIsTyping();
     };
   }, [roomCode]);
 
-  const initTemplate = async (template: string) => {
-    const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
-    await set(textRef, template);
-  };
+  const appendCharacter = useCallback(async (char: string, playerName: string, color: string) => {
+    if (!roomCode || !uid) return;
 
-  const appendCharacter = async (char: string) => {
-    if (!uid) return;
     const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
     
-    await runTransaction(textRef, (currentData: string | null) => {
-      if (currentData === null) return char;
-      if (currentData.length >= 160) return currentData;
-      return currentData + char;
-    });
+    try {
+      await runTransaction(textRef, (currentData) => {
+        const baseString = currentData || '';
+        if (baseString.length >= 160) {
+          return baseString; // Intercepta localmente caso exceda o limite global
+        }
+        return baseString + char;
+      });
 
-    const typingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping/${uid}`);
-    await set(typingRef, true);
-    
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(async () => {
-      await set(typingRef, false);
-    }, 400);
-  };
+      const userIsTypingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping/${uid}`);
+      const userCursorRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors/${uid}`);
 
-  const updateCursor = async (position: number, nickname: string) => {
-    if (!uid) return;
-    // Corrigido typo (code -> roomCode)
-    const cursorRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors/${uid}`);
-    await set(cursorRef, { position, nickname });
-  };
+      await set(userIsTypingRef, true);
+      
+      // O cursor é posicionado artificialmente no final do buffer local + 1
+      await set(userCursorRef, { 
+        position: currentText.length + 1, 
+        nickname: playerName, 
+        color 
+      });
 
-  return { text, cursors, isTypingMap, audioFinished, appendCharacter, updateCursor, initTemplate };
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(async () => {
+        await set(userIsTypingRef, false);
+      }, 400);
+
+    } catch (error) {
+      console.error("Erro na transação de digitação RTDB:", error);
+    }
+  }, [roomCode, uid, currentText.length]);
+
+  return { currentText, cursors, activeTypers, appendCharacter };
 };

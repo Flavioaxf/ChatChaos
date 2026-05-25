@@ -1,22 +1,19 @@
-const ROLES = ['IRRITADO', 'HACKEADO', 'BEBADO', 'MANDARIM'];
-
-type AssignmentResult = Record<string, { team: 'TIME_A' | 'TIME_B', secretRole: string }>;
-
-export const assignTeamsAndRoles = (playerIds: string[]): AssignmentResult => {
-  // Embaralha o array de IDs de forma aleatória
-  const shuffled = [...playerIds].sort(() => 0.5 - Math.random());
+export const assignTeamsAndRoles = (playerIds: string[]): Record<string, { team: 'TIME_A' | 'TIME_B', secretRole: string }> => {
+  const shuffledPlayers = [...playerIds].sort(() => Math.random() - 0.5);
+  const midPoint = Math.ceil(shuffledPlayers.length / 2);
+  const availableRoles = ['IRRITADO', 'HACKEADO', 'BEBADO', 'MANDARIM'];
   
-  // Corta na metade (arredondando para cima para o Time A se for ímpar)
-  const half = Math.ceil(shuffled.length / 2);
-  const timeA = shuffled.slice(0, half);
-
-  const assignments: AssignmentResult = {};
-
-  shuffled.forEach(uid => {
-    const team = timeA.includes(uid) ? 'TIME_A' : 'TIME_B';
-    const secretRole = ROLES[Math.floor(Math.random() * ROLES.length)];
-    assignments[uid] = { team, secretRole };
+  const assignments: Record<string, { team: 'TIME_A' | 'TIME_B', secretRole: string }> = {};
+  
+  shuffledPlayers.forEach((uid, index) => {
+    const assignedTeam = index < midPoint ? 'TIME_A' : 'TIME_B';
+    const assignedRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+    
+    assignments[uid] = {
+      team: assignedTeam,
+      secretRole: assignedRole
+    };
   });
-
+  
   return assignments;
 };

@@ -1,44 +1,37 @@
-import { AdwareItem } from "@/types/game";
-
-const ADWARE_IMAGES = [
-  '/adwares/virus_classico.png',
-  '/adwares/premio_falso.gif',
-  '/adwares/erro_azul.png',
-  '/adwares/aviso_sistema.png'
-];
-
-const WINDOW_TITLES = [
-  'SISTEMA_INFECTADO.EXE',
-  'ERRO_CRITICO_7749',
-  'PARABENS_VOCE_GANHOU.EXE',
-  'ATENCAO_URGENTE'
-];
+import { AdwareItem } from '@/types/game';
 
 export const generateAdwarePayload = (): AdwareItem[] => {
-  // Limites rigorosos da regra de negócio: entre 2 e 5
-  const count = Math.floor(Math.random() * 4) + 2; 
+  const baseAdwareTemplates = [
+    { windowTitle: 'SISTEMA_INFECTADO.EXE', imgSrc: '/adwares/virus_classico.png' },
+    { windowTitle: 'ERRO_CRITICO_7749', imgSrc: '/adwares/erro_azul.png' },
+    { windowTitle: 'PARABENS_VOCE_GANHOU.EXE', imgSrc: '/adwares/premio_falso.gif' },
+    { windowTitle: 'ALERTA_DE_INVASAO', imgSrc: '/adwares/hacker_alert.png' },
+    { windowTitle: 'DOWNLOAD_CONCLUIDO', imgSrc: '/adwares/download_fake.png' }
+  ];
+  
+  const adwareCount = Math.floor(Math.random() * 4) + 2; // Gera entre 2 e 5 pop-ups
   const payload: AdwareItem[] = [];
 
-  for (let i = 0; i < count; i++) {
-    const randomImage = ADWARE_IMAGES[Math.floor(Math.random() * ADWARE_IMAGES.length)];
-    const randomTitle = WINDOW_TITLES[Math.floor(Math.random() * WINDOW_TITLES.length)];
+  for (let i = 0; i < adwareCount; i++) {
+    const templateIndex = Math.floor(Math.random() * baseAdwareTemplates.length);
+    const selectedTemplate = baseAdwareTemplates[templateIndex];
     
     payload.push({
-      id: `adw_${Date.now()}_${i}`,
-      windowTitle: randomTitle,
-      imgSrc: randomImage,
+      id: `adw_${Date.now()}_${i}_${Math.floor(Math.random() * 1000)}`,
+      windowTitle: selectedTemplate.windowTitle,
+      imgSrc: selectedTemplate.imgSrc,
       position: { 
         x: Math.floor(Math.random() * 800) + 50, 
         y: Math.floor(Math.random() * 500) + 50 
       },
       size: { 
-        width: Math.floor(Math.random() * 200) + 250, 
-        height: Math.floor(Math.random() * 150) + 200 
+        width: Math.floor(Math.random() * 100) + 250, // Largura entre 250 e 350
+        height: Math.floor(Math.random() * 100) + 200 // Altura entre 200 e 300
       },
-      animationDelay: (i + 1) * 600, // Cascata incremental garantida
-      closeable: Math.random() > 0.3
+      animationDelay: i * 850, // Cascata de exibição
+      closeable: Math.random() > 0.25 // 75% de chance de ter botão de fechar
     });
   }
-
+  
   return payload;
 };
