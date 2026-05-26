@@ -1,125 +1,85 @@
-"use client";
-
-import { useState } from "react";
-import type { Screen } from "@/src/app/page";
-import { PlayerStatusBar } from "../../ui/player-status-bar";
+'use client';
+import React, { useState } from 'react';
 
 interface ThemeVotingScreenProps {
-  onNavigate: (screen: Screen) => void;
-  onSelectTheme: (theme: string) => void;
-  playerName: string;
+  playerName?: string;
+  avatar?: string;
+  themes?: string[];
+  onVoteTheme?: (theme: string) => void;
 }
 
-const themes = [
-  { name: "Grupo da empresa", votes: 3 },
-  { name: "Grupo da familia", votes: 1 },
-  { name: "Republica", votes: 0 },
-  { name: "Numero desconhecido", votes: 0 },
-  { name: "Calouro no lab", votes: 1 },
-];
-
-export function ThemeVotingScreen({ onNavigate, onSelectTheme, playerName }: ThemeVotingScreenProps) {
-  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
-  const [votesRemaining, setVotesRemaining] = useState(1);
-  const [themeVotes, setThemeVotes] = useState(themes);
-
-  const maxVotes = Math.max(...themeVotes.map((t) => t.votes));
-  const leadingTheme = themeVotes.find((t) => t.votes === maxVotes)?.name || themes[0].name;
+export function ThemeVotingScreen({
+  playerName = 'HACKER_99',
+  avatar = '(>_<)',
+  themes = ['SISTEMAS DA UERN', 'TI DO CAOS', 'FESTA DE SÃO JOÃO', 'GRUPO DA FAMÍLIA'],
+  onVoteTheme
+}: ThemeVotingScreenProps) {
+  const [votedTheme, setVotedTheme] = useState<string | null>(null);
 
   const handleVote = (themeName: string) => {
-    if (votesRemaining <= 0 && selectedTheme !== themeName) return;
-
-    if (selectedTheme === themeName) {
-      setThemeVotes((prev) =>
-        prev.map((t) => (t.name === themeName ? { ...t, votes: t.votes - 1 } : t))
-      );
-      setSelectedTheme(null);
-      setVotesRemaining(1);
-    } else {
-      if (selectedTheme) {
-        setThemeVotes((prev) =>
-          prev.map((t) => (t.name === selectedTheme ? { ...t, votes: t.votes - 1 } : t))
-        );
-      }
-      setThemeVotes((prev) =>
-        prev.map((t) => (t.name === themeName ? { ...t, votes: t.votes + 1 } : t))
-      );
-      setSelectedTheme(themeName);
-      setVotesRemaining(0);
+    setVotedTheme(themeName);
+    if (onVoteTheme) {
+      onVoteTheme(themeName);
     }
   };
 
-  const handleConfirm = () => {
-    onSelectTheme(leadingTheme);
-    onNavigate("role");
-  };
-
   return (
-    <div className="min-h-dvh flex flex-col p-4 sm:p-6 max-w-md mx-auto w-full">
-      <PlayerStatusBar playerName={playerName} role={null} />
+    <main className="h-[100dvh] w-full bg-[#EDEBE5] text-[#1C1C1C] flex flex-col font-sans p-4 sm:p-6 overflow-hidden select-none justify-between">
       
-      {/* Header */}
-      <div className="mb-8 mt-4">
-        <h1 className="font-display text-3xl sm:text-4xl tracking-tight">
-          VOTAR NO TEMA<span className="text-muted">_</span>
-        </h1>
-        <p className="font-display text-muted text-sm mt-2">
-          cada jogador vota no tema da rodada
-        </p>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=VT323&display=swap');
+        .font-pixel { font-family: 'VT323', monospace !important; }
+        .font-project-sans { font-family: 'DM Sans', sans-serif !important; }
+        
+        .shadow-hard { box-shadow: 4px 4px 0px #1C1C1C; }
+        .rounded-brutalist { border-radius: 8px !important; }
+      `}} />
+
+      <div className="w-full shrink-0 flex justify-between items-center bg-[#1C1C1C] text-[#F7F5F0] px-4 py-2.5 border-[3px] border-[#1C1C1C] shadow-hard rounded-brutalist">
+        <span className="font-pixel text-xl sm:text-2xl truncate pr-2 uppercase">{playerName}</span>
+        <span className="font-pixel text-2xl sm:text-3xl text-[#FF6B35]">{avatar}</span>
       </div>
 
-      {/* Theme List */}
-      <div className="flex-1 space-y-3">
-        {themeVotes.map((theme) => {
-          const isLeading = theme.votes === maxVotes && maxVotes > 0;
-          const isSelected = selectedTheme === theme.name;
-          const progressWidth = maxVotes > 0 ? (theme.votes / maxVotes) * 100 : 0;
+      <div className="flex-1 mt-8 mb-4 flex flex-col min-h-0 justify-center w-full max-w-md mx-auto gap-5 sm:gap-6">
+        <div className="w-full bg-[#1C1C1C] border-[3px] border-[#1C1C1C] p-3 text-center rounded-brutalist transform -rotate-1 shadow-hard shrink-0">
+          <h2 className="font-pixel text-[#FF6B35] text-2xl sm:text-3xl font-bold tracking-widest uppercase">
+            SELECIONE O ALVO_
+          </h2>
+        </div>
 
-          return (
-            <button
-              key={theme.name}
-              onClick={() => handleVote(theme.name)}
-              className={`w-full text-left p-4 sm:p-5 border rounded-md transition-all ${
-                isSelected ? "selected-state" : "bg-surface border-border hover:bg-[rgba(208,206,200,0.2)]"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-body text-base sm:text-lg font-medium">
-                  {theme.name}
-                </span>
-                <span
-                  className={`font-display text-xl sm:text-2xl ${
-                    isLeading ? "text-accent" : "text-muted"
-                  }`}
-                >
-                  {theme.votes}
-                </span>
-              </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-bar-fill"
-                  style={{ width: `${progressWidth}%` }}
-                />
-              </div>
-            </button>
-          );
-        })}
+        <div className="flex-1 flex flex-col justify-center gap-3 min-h-0">
+          {themes.map((themeOption) => {
+            const isSelected = votedTheme === themeOption;
+            const hasVotedAny = votedTheme !== null;
+
+            return (
+              <button
+                key={themeOption}
+                type="button"
+                disabled={hasVotedAny && !isSelected}
+                onClick={() => handleVote(themeOption)}
+                className={`w-full border-[4px] border-[#1C1C1C] rounded-brutalist p-4 text-left font-pixel text-2xl sm:text-3xl uppercase tracking-wider transition-all shadow-hard shrink-0
+                  ${isSelected 
+                    ? 'bg-[#FF6B35] text-[#1C1C1C] translate-y-1 shadow-none' 
+                    : 'bg-[#F7F5F0] text-[#1C1C1C] active:translate-y-1 active:shadow-none disabled:opacity-40'
+                  }
+                `}
+              >
+                {isSelected ? `> ${themeOption} [X]` : `  ${themeOption}`}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Votes Remaining */}
-      <div className="my-6">
-        <p className="font-display text-muted text-base text-center">
-          votos restantes: <span className="text-accent text-lg">{votesRemaining}</span>
-        </p>
+      <div className="w-full shrink-0 bg-[#1C1C1C] border-[3px] border-[#1C1C1C] text-[#F7F5F0] p-4 text-center rounded-brutalist font-pixel text-xl sm:text-2xl uppercase tracking-widest">
+        {votedTheme ? (
+          <span className="text-[#06D6A0] animate-pulse">AGUARDANDO OUTROS VOTOS...</span>
+        ) : (
+          <span>SISTEMA PRONTO PARA CAPTURA</span>
+        )}
       </div>
 
-      {/* CTA */}
-      <button
-        onClick={handleConfirm}
-        className="btn-primary w-full text-base sm:text-lg py-4 mt-auto mb-4"
-      >
-        CONFIRMAR E VER PAPEL
-      </button>
-    </div>
+    </main>
   );
 }
