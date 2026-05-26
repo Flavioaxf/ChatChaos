@@ -1,96 +1,96 @@
 'use client';
-import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
 
-// Imports com caminhos relativos
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useRoom } from '@/hooks/useRoom'; // Nosso hook de Firestore
+import { useGameFlow } from '@/hooks/useGameFlow';
+import { ref, onValue } from 'firebase/database';
+import { rtdb } from '@/lib/firebase';
+
 import TelaoLobbyScreen from '../../../components/screens/telao/telao-lobby-screen';
 import TelaoContextScreen from '../../../components/screens/telao/telao-context-screen';
 import TelaoMatchScreen from '../../../components/screens/telao/telao-match-screen';
 import TelaoResultsScreen from '../../../components/screens/telao/telao-results-screen';
 
-type GameState = 'LOBBY' | 'CONTEXT_REVEAL' | 'MATCH' | 'RESULTS';
-
 export default function TelaoJogoPage() {
   const params = useParams();
-  const roomCode = params.code as string;
-  const [gameState, setGameState] = useState<GameState>('LOBBY');
+  const roomCode = (params.code as string).toUpperCase();
+  
+  // 1. Conecta ao Firebase (Firestore)
+  const { players, roomData } = useRoom(roomCode);
+  const { startGame } = useGameFlow(roomCode);
+  
+  // 2. Estados reativos do RTDB para o jogo
+  const [currentTextLive, setCurrentTextLive] = useState<string>('');
+  const [activeCursors, setActiveCursors] = useState<any[]>([]);
 
-  const jogadoresSimulados = [
-    { id: '1', name: 'FLAVIO_AXF', avatar: '(>_<)', score: 120, secretRole: 'MANDARIM' },
-    { id: '2', name: 'DUPLA_BACK', avatar: '(O_O)', score: 95, secretRole: 'HACKEADO' },
-    { id: '3', name: 'RAUL_PARADEDA', avatar: '(^_-)', score: 40, secretRole: 'IRRITADO' },
-    { id: '4', name: 'PLAYER_4', avatar: '(T_T)', score: 0, secretRole: 'NORMAL' },
-  ];
+  // Listener para o texto em tempo real (digitação)
+  useEffect(() => {
+    if (!roomCode) return;
+    const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
+    return onValue(textRef, (snapshot) => setCurrentTextLive(snapshot.val() || ''));
+  }, [roomCode]);
 
-  const cursoresSimulados = [
-    { playerId: '1', playerName: 'FLAVIO_AXF', color: '#FF6B35', avatar: '(>_<)' },
-    { playerId: '2', playerName: 'DUPLA_BACK', color: '#4A90E2', avatar: '(O_O)' },
-  ];
-
-  return (
-    <div className="relative min-h-screen font-sans">
+  // Listener para cursores (localização dos jogadores)
+  useEffect(() => {
+    if (!roomCode || !players.length) return;
+    const cursorsRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors`);
+    return onValue(cursorsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) { setActiveCursors([]); return; }
       
-      {/* ANIMAÇÃO DE ENTRADA DO LOBBY */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes revealLobby {
-          0%, 20% { opacity: 1; }
-          100% { opacity: 0; visibility: hidden; }
-        }
-        .animate-reveal { animation: revealLobby 1.2s ease-out forwards; }
-      `}} />
-      <div className="fixed inset-0 z-[9999] bg-[#1C1C1C] animate-reveal pointer-events-none flex items-center justify-center">
-         <span className="font-mono text-[#FF6B35] text-2xl tracking-widest animate-pulse">LOBBY_MAINFRAME_ONLINE_</span>
-      </div>
+      const mapped = Object.entries(data).map(([uid, val]: any) => ({
+        playerId: uid,
+        playerName: val.nickname,
+        color: val.color,
+        avatar: players.find(p => p.id === uid)?.avatar || '(?)'
+      }));
+      setActiveCursors(mapped);
+    });
+  }, [roomCode, players]);
 
-      {/* 1. TELA DE LOBBY */}
-      {gameState === 'LOBBY' && (
-        <TelaoLobbyScreen 
-          roomCode={roomCode} 
-          players={jogadoresSimulados}
-          onStartGame={() => setGameState('CONTEXT_REVEAL')}
-        />
-      )}
+  if (!roomData) {
+    return <div className="h-screen flex items-center justify-center font-pixel text-4xl text-[#FF6B35] bg-[#1C1C1C]">INICIALIZANDO_MAINFRAME...</div>;
+  }
 
-      {/* 2. TELA DE CONTEXTO E SINCRONIZAÇÃO (Novo Componente) */}
-      {gameState === 'CONTEXT_REVEAL' && (
+  // A RENDERIZAÇÃO AGORA OBEDECE AO FIREBASE
+  switch (roomData.gameState) {
+    case 'LOBBY':
+      return <TelaoLobbyScreen roomCode={roomCode} players={players as any} onStartGame={startGame} />;
+
+    case 'CONTEXT_REVEAL':
+      return (
         <TelaoContextScreen
-          theme="Grupo da Empresa"
-          contextText="ATIVIDADE SUSPEITA DETECTADA NO SERVIDOR CENTRAL. JUSTIFIQUE IMEDIATAMENTE SUA PRESENÇA OU O SISTEMA OPERACIONAL SERÁ COMPLETAMENTE FORMATADO EM 60 SEGUNDOS."
-          players={jogadoresSimulados}
-          onSequenceComplete={() => setGameState('MATCH')}
+          theme={roomData.currentTheme || "..."}
+          contextText={roomData.currentTemplate || "..."}
+          players={players as any}
+          onSequenceComplete={() => {}} // Futuro acoplamento para advanceState
         />
-      )}
+      );
 
-      {/* 3. TELA DE PARTIDA */}
-      {gameState === 'MATCH' && (
+    case 'TYPING_ROUND_1':
+    case 'TYPING_ROUND_2':
+      return (
         <TelaoMatchScreen 
-          currentRound={1}
-          activeTeam="TIME_A"
-          theme="Grupo da Empresa"
-          contextText="ATIVIDADE SUSPEITA DETECTADA NO SERVIDOR CENTRAL. JUSTIFIQUE IMEDIATAMENTE SUA PRESENÇA OU O SISTEMA OPERACIONAL SERÁ COMPLETAMENTE FORMATADO."
-          currentText="REPLY_: Olá chefia, peço desculpas pelo acesso indevido, mas estávamos apenas testando a vulnerabilidade do"
-          timeLeft={30}
-          activeCursors={cursoresSimulados}
+          currentRound={roomData.gameState === 'TYPING_ROUND_1' ? 1 : 2}
+          activeTeam={roomData.gameState === 'TYPING_ROUND_1' ? "TIME_A" : "TIME_B"}
+          theme={roomData.currentTheme || ''}
+          currentText={currentTextLive}
+          timeLeft={30} // A ser acoplado via timer do Firestore
+          activeCursors={activeCursors}
         />
-      )}
+      );
 
-      {/* 4. TELA DE RESULTADOS */}
-      {gameState === 'RESULTS' && (
+    case 'SCORING_REVEAL_1':
+    case 'LEADERBOARD':
+      return (
         <TelaoResultsScreen 
-          rankings={jogadoresSimulados}
-          onNewGame={() => setGameState('LOBBY')}
+          playersRanked={players as any}
+          onPlayAgain={() => {}}
         />
-      )}
+      );
 
-      {/* MENU DE DEBUG */}
-      <div className="fixed bottom-4 left-4 bg-[#EDEBE5] p-3 rounded-[8px] border-2 border-[#1C1C1C] flex gap-2 z-50 shadow-lg">
-        <span className="text-xs font-bold mr-2 text-[#888888] my-auto">DEBUG:</span>
-        <button onClick={() => setGameState('LOBBY')} className="text-xs font-bold px-3 py-1 bg-white border border-[#D0CEC8] rounded">1</button>
-        <button onClick={() => setGameState('CONTEXT_REVEAL')} className="text-xs font-bold px-3 py-1 bg-white border border-[#D0CEC8] rounded">2</button>
-        <button onClick={() => setGameState('MATCH')} className="text-xs font-bold px-3 py-1 bg-white border border-[#D0CEC8] rounded">3</button>
-        <button onClick={() => setGameState('RESULTS')} className="text-xs font-bold px-3 py-1 bg-white border border-[#D0CEC8] rounded">4</button>
-      </div>
-
-    </div>
-  );
+    default:
+      return <div className="text-white">ESTADO: {roomData.gameState}</div>;
+  }
 }

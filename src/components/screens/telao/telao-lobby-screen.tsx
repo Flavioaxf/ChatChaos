@@ -23,9 +23,10 @@ export default function TelaoLobbyScreen({
   const [dots, setDots] = useState("");
   const [phase, setPhase] = useState(0);
   const [fakePlayerCount, setFakePlayerCount] = useState(players.length);
-
-  // Códigos de erro falsos para o Kernel Panic (Fase 5)
   const [dumpLogs, setDumpLogs] = useState<string[]>([]);
+
+  // REGRA DO BACKEND: Mínimo de 3 jogadores para formar times
+  const minPlayers = 3;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -67,14 +68,15 @@ export default function TelaoLobbyScreen({
     setTimeout(() => setPhase(4), 4500); // FASE 4: Painel principal sucumbe (vermelho)
     setTimeout(() => setPhase(5), 6000); // FASE 5: Kernel Panic (Tela vomita códigos)
     setTimeout(() => setPhase(6), 6800); // FASE 6: CRT Power Off (Desliga o monitor)
-    setTimeout(() => onStartGame(), 7300); // FINAL: Vai pra tela de Contexto
+    
+    // FINAL: Chama a função do Firebase que reparte os times e muda o gameState
+    setTimeout(() => onStartGame(), 7300); 
   };
 
   const maxSlots = Math.max(8, players.length + (4 - (players.length % 4)));
   const emptySlotsCount = maxSlots - players.length;
 
   return (
-    // O fundo raiz agora é preto para o efeito da TV desligando ficar perfeito
     <div className="flex-1 flex flex-col h-screen max-h-screen bg-[#1C1C1C] overflow-hidden selection:bg-[#FF6B35] selection:text-[#F7F5F0]">
       <style
         dangerouslySetInnerHTML={{
@@ -96,14 +98,12 @@ export default function TelaoLobbyScreen({
         }
         .animate-panic { animation: panic-shake 0.2s infinite; }
 
-        /* A TELA VOMITANDO CÓDIGO (KERNEL PANIC) */
         @keyframes scroll-dump {
           0% { transform: translateY(0); }
           100% { transform: translateY(-50%); }
         }
         .animate-scroll-dump { animation: scroll-dump 0.8s linear forwards; }
 
-        /* A TV SENDO DESLIGADA (CRT OFF) */
         @keyframes crt-off {
           0% { transform: scale(1, 1); opacity: 1; }
           30% { transform: scale(1, 0.01); opacity: 1; background-color: #FFFFFF; filter: brightness(2); }
@@ -118,11 +118,9 @@ export default function TelaoLobbyScreen({
         }}
       />
 
-      {/* O CONTAINER DA INTERFACE INTEIRA (É isso aqui que "desliga" como uma TV no final) */}
       <div
         className={`flex-1 flex flex-col w-full h-full relative transition-colors duration-300 ${phase >= 6 ? "animate-crt-off" : phase >= 4 ? "bg-[#C8381E] animate-critical-flash" : "bg-[#F7F5F0]"} p-2 md:p-4`}
       >
-        {/* FASE 5: O KERNEL PANIC COBRINDO TUDO */}
         {phase === 5 && (
           <div className="absolute inset-0 z-[100] bg-[#C8381E] text-[#F7F5F0] font-pixel text-lg md:text-xl p-4 overflow-hidden flex flex-col leading-none shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]">
             <div className="animate-scroll-dump flex flex-col gap-1 opacity-80">
@@ -147,7 +145,6 @@ export default function TelaoLobbyScreen({
             }}
           ></div>
 
-          {/* BARRA SUPERIOR */}
           <div className="bg-[#1C1C1C] text-[#F7F5F0] p-2 md:p-3 flex justify-between items-center border-b-[4px] border-[#1C1C1C] z-10 transition-all duration-[600ms]">
             <div className="flex items-center gap-4 font-pixel text-base md:text-xl tracking-widest">
               <span
@@ -167,12 +164,11 @@ export default function TelaoLobbyScreen({
             <div
               className={`font-pixel text-base md:text-lg tracking-widest px-3 py-1 font-bold ${phase >= 2 ? "bg-[#C8381E] text-[#F7F5F0] animate-panic" : "bg-[#FF6B35] text-[#1C1C1C]"}`}
             >
-              PLAYERS_CONNECTED: {fakePlayerCount}
+              PLAYERS_CONNECTED: {phase >= 2 ? fakePlayerCount : players.length}
             </div>
           </div>
 
           <div className="flex-1 flex flex-col lg:flex-row overflow-visible z-10 relative">
-            {/* COLUNA ESQUERDA (O FAROL) */}
             <div
               className={`lg:w-2/5 border-b-[4px] lg:border-b-0 lg:border-r-[4px] border-[#1C1C1C] p-4 md:p-8 flex flex-col h-full overflow-y-auto ${phase >= 4 ? "bg-[#C8381E] animate-panic" : "bg-[#F7F5F0]"}`}
             >
@@ -200,10 +196,9 @@ export default function TelaoLobbyScreen({
                     <>
                       Acesse{" "}
                       <strong className="text-[#1C1C1C] underline decoration-[3px] decoration-[#FF6B35] tracking-widest">
-                        caos.chat
+                        localhost:3000
                       </strong>{" "}
-                      no seu dispositivo e insira a chave de criptografia
-                      abaixo:
+                      no seu dispositivo e insira a chave:
                     </>
                   )}
                 </p>
@@ -241,10 +236,11 @@ export default function TelaoLobbyScreen({
               <div className="mt-auto pt-6">
                 <button
                   onClick={handleStartCaos}
-                  disabled={players.length < 2 || phase > 0}
+                  // ALTERADO AQUI: Requer 3 jogadores e impede duplo clique
+                  disabled={players.length < minPlayers || phase > 0}
                   className={`w-full py-4 md:py-5 text-[clamp(1.2rem,2.5vw,2.5rem)] font-pixel font-bold rounded-[8px] border-[4px] border-[#1C1C1C] border-b-[8px] transition-all tracking-widest uppercase flex items-center justify-center gap-4
                     ${
-                      players.length >= 2 && phase === 0
+                      players.length >= minPlayers && phase === 0
                         ? "bg-[#FF6B35] text-[#1C1C1C] hover:bg-[#e05a2b] active:border-b-[4px] active:translate-y-[4px]"
                         : phase >= 4
                           ? "bg-[#1C1C1C] text-[#C8381E] border-b-[4px] translate-y-[4px] animate-panic"
@@ -267,19 +263,18 @@ export default function TelaoLobbyScreen({
                     <span className="text-[#C8381E]">
                       &gt;&gt;&gt; FALHA_CRÍTICA_
                     </span>
-                  ) : players.length >= 2 ? (
+                  ) : players.length >= minPlayers ? (
                     <>
                       <span className="animate-pulse">&gt;&gt;&gt;</span>{" "}
                       INICIAR_CAOS_
                     </>
                   ) : (
-                    <>WAITING_PLAYERS_</>
+                    <>AGUARDANDO: MIN_{minPlayers}_JOGADORES</>
                   )}
                 </button>
               </div>
             </div>
 
-            {/* COLUNA DIREITA: GRID DE JOGADORES */}
             <div
               className={`lg:w-3/5 p-4 md:p-8 flex flex-col overflow-y-auto relative ${phase >= 3 ? "bg-[#F7F5F0] animate-panic" : "bg-[#EDEBE5]"}`}
             >
@@ -315,7 +310,7 @@ export default function TelaoLobbyScreen({
                 <span
                   className={`font-pixel text-lg md:text-xl tracking-widest leading-none ${phase >= 3 ? "text-[#C8381E] animate-pulse" : "text-[#FF6B35]"}`}
                 >
-                  CAPACITY: {fakePlayerCount}/12
+                  CAPACITY: {phase >= 2 ? fakePlayerCount : players.length}/12
                 </span>
               </div>
 

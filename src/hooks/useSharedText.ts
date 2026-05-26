@@ -15,6 +15,7 @@ export const useSharedText = (roomCode: string, uid: string) => {
   
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Listener para ler o texto e cursores globais
   useEffect(() => {
     if (!roomCode) return;
 
@@ -41,26 +42,27 @@ export const useSharedText = (roomCode: string, uid: string) => {
     };
   }, [roomCode]);
 
+  // Função atómica para anexar texto (Append-Only)
   const appendCharacter = useCallback(async (char: string, playerName: string, color: string) => {
     if (!roomCode || !uid) return;
 
     const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
     
     try {
+      // runTransaction garante que não há colisões de pacotes
       await runTransaction(textRef, (currentData) => {
         const baseString = currentData || '';
-        if (baseString.length >= 160) {
-          return baseString; // Intercepta localmente caso exceda o limite global
+        if (baseString.length >= 250) {
+          return baseString; // Limite global de caracteres
         }
         return baseString + char;
       });
 
+      // Atualiza os metadados visuais do jogador (isTyping e Cursor)
       const userIsTypingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping/${uid}`);
       const userCursorRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors/${uid}`);
 
       await set(userIsTypingRef, true);
-      
-      // O cursor é posicionado artificialmente no final do buffer local + 1
       await set(userCursorRef, { 
         position: currentText.length + 1, 
         nickname: playerName, 
@@ -73,7 +75,7 @@ export const useSharedText = (roomCode: string, uid: string) => {
       
       typingTimeoutRef.current = setTimeout(async () => {
         await set(userIsTypingRef, false);
-      }, 400);
+      }, 400); // O avatar pára de "falar" após 400ms sem escrever
 
     } catch (error) {
       console.error("Erro na transação de digitação RTDB:", error);
