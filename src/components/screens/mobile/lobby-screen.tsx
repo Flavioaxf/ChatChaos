@@ -29,7 +29,7 @@ export function LobbyScreen({ onNavigate, onSetPlayerName }: LobbyScreenProps) {
           <span className="text-accent">Caos</span>
         </h1>
         <p className="font-display text-muted text-sm sm:text-base mt-2">
-          // jogo de texto coletivo sem delete
+          {"// jogo de texto coletivo sem delete"}
         </p>
       </div>
 

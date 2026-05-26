@@ -215,6 +215,7 @@ export default function TelaoMatchScreen({
       const timer = setTimeout(() => setPhase('MOUSE_CLEANUP'), 8000); 
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, prepTime, matchTime, revealingWordIndex, currentText]);
 
   // Limpeza dos pop-ups e Gatilho da Saída Final
@@ -406,7 +407,9 @@ export default function TelaoMatchScreen({
         <div className={`absolute inset-0 z-[400] flex flex-col items-center justify-center p-12 bg-black bg-opacity-80 backdrop-blur-sm transition-all duration-700
           ${templateShrinking ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
           <div className="max-w-5xl w-full flex flex-col items-center">
-            <h3 className="font-pixel text-[#F7F5F0] text-3xl uppercase tracking-widest mb-8 bg-[#1C1C1C] px-6 py-2 border-[4px] border-[#333]">// DESCRIPTOGRAFANDO RASCUNHO_</h3>
+            <h3 className="font-pixel text-[#F7F5F0] text-3xl uppercase tracking-widest mb-8 bg-[#1C1C1C] px-6 py-2 border-[4px] border-[#333]">
+              {"// DESCRIPTOGRAFANDO RASCUNHO_"}
+            </h3>
             <div className="bg-[#FF6B35] text-[#1C1C1C] border-[6px] border-[#1C1C1C] px-12 py-8 shadow-[16px_16px_0px_#1C1C1C] transform -rotate-2">
               <p className="font-pixel text-5xl md:text-7xl font-bold uppercase text-center leading-snug">
                 {typedTemplate}<span className="animate-blink text-[#1C1C1C]">|</span>
@@ -642,6 +645,7 @@ export default function TelaoMatchScreen({
                 <div className="bg-[#C0C0C0] text-black border-t-[2px] border-l-[2px] border-t-white border-l-white border-b-[2px] border-r-[2px] border-b-black border-r-black w-6 h-6 flex items-center justify-center font-bold pb-1 cursor-pointer">x</div>
               </div>
               <div className="flex-1 bg-black flex items-center justify-center overflow-hidden border-[2px] border-t-black border-l-black border-b-white border-r-white m-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ad.imgSrc} alt={ad.title} className="w-full h-auto object-cover" onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/300x150?text=IMAGEM_NAO_ENCONTRADA'; }} />
               </div>
             </div>
