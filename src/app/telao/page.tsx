@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/src/hooks/useAuth';
+import { useRoom } from '@/src/hooks/useRoom';
 import { useRouter } from 'next/navigation';
 
 const MOCK_LOGS = [
@@ -21,30 +23,60 @@ const MOCK_LOGS = [
 ];
 
 export default function TelaoMenuPage() {
+  const [time, setTime] = useState<string>("");
+
+  useEffect(() => {
+    // Define a hora inicial assim que o componente montar
+    setTime(new Date().toLocaleTimeString());
+
+    // Atualiza a cada segundo
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const router = useRouter();
+  const { user } = useAuth();
+  const { createRoom } = useRoom();
   const [loading, setLoading] = useState(false);
   const [systemLogs, setSystemLogs] = useState<string[]>([]);
   const [cpuLoad, setCpuLoad] = useState(12);
   const [showTutorial, setShowTutorial] = useState(false);
   
+  
   // ESTADOS ADICIONADOS APENAS PARA A TRANSIÇÃO
   const [bootStep, setBootStep] = useState(-1);
 
-  const criarNovaSala = () => {
+  const criarNovaSala = async () => {
+    if (!user) return; // Garante que o host está autenticado anonimamente
+    
     setLoading(true);
     setCpuLoad(100); 
-    setBootStep(0); // 0. O Overlay nasce exatamente em cima do terminal esquerdo
+    setBootStep(0); 
     
-    // Coreografia da transição
-    setTimeout(() => setBootStep(1), 100);  // 1. Terminal expande para a direita
-    setTimeout(() => setBootStep(2), 1000); // 2. Log 1
-    setTimeout(() => setBootStep(3), 1600); // 3. Log 2
-    setTimeout(() => setBootStep(4), 2200); // 4. Log 3
-    setTimeout(() => setBootStep(5), 2800); // 5. Tela inteira escurece 100% para fundir com o Lobby
-    
-    setTimeout(() => {
-      router.push('/telao/CAOS2026');
-    }, 3400); 
+    try {
+      // 1. O Backend cria a sala PRIMEIRO e gera o código
+      const newRoomCode = await createRoom(user.uid);
+
+      // 2. A coreografia original de animação prossegue intocável
+      setTimeout(() => setBootStep(1), 100);
+      setTimeout(() => setBootStep(2), 1000);
+      setTimeout(() => setBootStep(3), 1600);
+      setTimeout(() => setBootStep(4), 2200);
+      setTimeout(() => setBootStep(5), 2800);
+      
+      // 3. Redirecionamos para a sala REAL gerada pelo Firebase (em vez de 'CAOS2026')
+      setTimeout(() => {
+        router.push(`/telao/${newRoomCode}`);
+      }, 3400); 
+
+    } catch (error) {
+      console.error("Erro crítico ao instanciar servidor:", error);
+      setLoading(false);
+      setBootStep(-1);
+    }
   };
 
   useEffect(() => {
@@ -92,7 +124,7 @@ export default function TelaoMenuPage() {
             </span>
           </div>
           <div className="flex items-center gap-2 opacity-70 text-base">
-            <span>SYS_TIME: {new Date().toLocaleTimeString()}</span>
+            <span>SYS_TIME: {time}</span>s
           </div>
         </div>
 
