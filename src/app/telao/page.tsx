@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/src/hooks/useAuth';
+import { useRoom } from '@/src/hooks/useRoom';
 import { useRouter } from 'next/navigation';
 
 const MOCK_LOGS = [
@@ -21,30 +23,54 @@ const MOCK_LOGS = [
 ];
 
 export default function TelaoMenuPage() {
+  const [time, setTime] = useState<string>("");
+  const [mounted, setMounted] = useState(false); // NOVO ESTADO PARA HIDRATAÇÃO
+
+  useEffect(() => {
+    setMounted(true); // Confirma que estamos no cliente
+    setTime(new Date().toLocaleTimeString());
+
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const router = useRouter();
+  const { user } = useAuth();
+  const { createRoom } = useRoom();
   const [loading, setLoading] = useState(false);
   const [systemLogs, setSystemLogs] = useState<string[]>([]);
   const [cpuLoad, setCpuLoad] = useState(12);
   const [showTutorial, setShowTutorial] = useState(false);
-  
-  // ESTADOS ADICIONADOS APENAS PARA A TRANSIÇÃO
   const [bootStep, setBootStep] = useState(-1);
 
-  const criarNovaSala = () => {
+  const criarNovaSala = async () => {
+    if (!user) return; 
+    
     setLoading(true);
     setCpuLoad(100); 
-    setBootStep(0); // 0. O Overlay nasce exatamente em cima do terminal esquerdo
+    setBootStep(0); 
     
-    // Coreografia da transição
-    setTimeout(() => setBootStep(1), 100);  // 1. Terminal expande para a direita
-    setTimeout(() => setBootStep(2), 1000); // 2. Log 1
-    setTimeout(() => setBootStep(3), 1600); // 3. Log 2
-    setTimeout(() => setBootStep(4), 2200); // 4. Log 3
-    setTimeout(() => setBootStep(5), 2800); // 5. Tela inteira escurece 100% para fundir com o Lobby
-    
-    setTimeout(() => {
-      router.push('/telao/CAOS2026');
-    }, 3400); 
+    try {
+      const newRoomCode = await createRoom(user.uid);
+
+      setTimeout(() => setBootStep(1), 100);
+      setTimeout(() => setBootStep(2), 1000);
+      setTimeout(() => setBootStep(3), 1600);
+      setTimeout(() => setBootStep(4), 2200);
+      setTimeout(() => setBootStep(5), 2800);
+      
+      setTimeout(() => {
+        router.push(`/telao/${newRoomCode}`);
+      }, 3400); 
+
+    } catch (error) {
+      console.error("Erro crítico ao instanciar servidor:", error);
+      setLoading(false);
+      setBootStep(-1);
+    }
   };
 
   useEffect(() => {
@@ -91,12 +117,16 @@ export default function TelaoMenuPage() {
               PORT: 3000 // PROTOCOL: SECURE
             </span>
           </div>
-          <div className="flex items-center gap-2 opacity-70 text-base">
-            <span>SYS_TIME: {new Date().toLocaleTimeString()}</span>
+          {/* PROTEÇÃO APLICADA AQUI */}
+          <div className="flex items-center gap-2 opacity-70 text-base w-[180px] justify-end">
+            {mounted ? (
+              <span>SYS_TIME: {time}s</span>
+            ) : (
+              <span className="animate-pulse">LOADING_TIME...</span>
+            )}
           </div>
         </div>
 
-        {/* Adicionado 'relative' aqui para o overlay ficar contido nesta área */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
           
           <div className="hidden md:flex flex-col bg-[#1C1C1C] border-r-[4px] border-[#1C1C1C] flex-shrink-0 md:w-[320px] lg:w-[400px]">
@@ -203,9 +233,6 @@ export default function TelaoMenuPage() {
             
           </div>
 
-          {/* ========================================================= */}
-          {/* TRANSIÇÃO 1: TERMINAL EXPANDINDO DA ESQUERDA PARA A DIREITA */}
-          {/* ========================================================= */}
           <div 
             className={`absolute top-0 left-0 h-full bg-[#1C1C1C] z-[100] flex flex-col justify-center p-6 md:p-12 transition-all duration-[800ms] ease-[cubic-bezier(0.85,0,0.15,1)] border-r-[4px] md:border-r-[8px] border-[#FF6B35] overflow-hidden whitespace-nowrap
             ${bootStep >= 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}
@@ -216,7 +243,7 @@ export default function TelaoMenuPage() {
               <span className="font-pixel text-xl md:text-3xl text-[#FF6B35] animate-pulse tracking-widest">AUTH_BYPASS_ACTIVE</span>
             </div>
 
-            <div className="font-pixel text-[clamp(1rem,3vw,2.5rem)] text-[#FF6B35] flex flex-col gap-6 leading-none tracking-widest mt-8 min-w-[600px]">
+           <div className="font-pixel text-[clamp(1rem,3vw,2.5rem)] text-[#FF6B35] flex flex-col gap-6 leading-none tracking-widest mt-8 min-w-[600px]">
                {bootStep >= 2 && <p className="animate-fade-in">&gt; FORCING_SECURE_HANDSHAKE... <span className="text-[#F7F5F0]">OK</span></p>}
                {bootStep >= 3 && <p className="animate-fade-in">&gt; GENERATING_ROOM_HASH: CAOS-2026... <span className="text-[#F7F5F0]">OK</span></p>}
                {bootStep >= 4 && <p className="animate-fade-in">&gt; ROUTING_TO_LOBBY_MAINFRAME... <span className="animate-pulse">_</span></p>}
@@ -226,7 +253,6 @@ export default function TelaoMenuPage() {
         </div>
       </div>
 
-      {/* MODAL POP-UP DO MANUAL DE INSTRUÇÕES */}
       {showTutorial && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-70 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-4xl bg-[#F7F5F0] border-[4px] border-[#1C1C1C] rounded-[8px] shadow-[16px_16px_0px_rgba(255,107,53,1)] flex flex-col max-h-full">
@@ -249,9 +275,6 @@ export default function TelaoMenuPage() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TRANSIÇÃO 2: FADE TOTAL PARA PRETO PARA ESCONDER O RECARREGAMENTO */}
-      {/* ========================================================= */}
       <div className={`fixed inset-0 z-[110] bg-[#1C1C1C] transition-opacity duration-500 pointer-events-none ${bootStep >= 5 ? 'opacity-100' : 'opacity-0'}`}></div>
 
     </main>

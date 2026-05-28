@@ -1,96 +1,86 @@
-import { useState, useEffect } from 'react';
-import { doc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
-import { ref, onDisconnect } from 'firebase/database';
-import { db, rtdb, signInSilently } from '@/lib/firebase';
-import { Player } from '@/types/game';
+import { doc, getDoc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 
-// RNF-08: Avatares exclusivamente em caracteres ASCII
-const AVATARS = ['[ >_< ]', '[ @_@ ]', '[ ^_^ ]', '[ o_o ]', '[ -_- ]', '[ T_T ]', '[ $_$ ]', '[ *_* ]'];
+// Tipagem baseada estritamente no SRS v1.4
+export type GameState = 'LOBBY' | 'THEME_VOTING' | 'CONTEXT_REVEAL' | 'TYPING_ROUND_1' | 'TTS_ROUND_1' | 'VOTING_ROUND_1' | 'SCORING_REVEAL_1' | 'TYPING_ROUND_2' | 'TTS_ROUND_2' | 'VOTING_ROUND_2' | 'SCORING_REVEAL_2' | 'LEADERBOARD';
 
-const generateRoomCode = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let code = '';
-  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-  return code;
-};
+interface PlayerPayload {
+  name: string;
+  avatar: string;
+  team: 'TIME_A' | 'TIME_B' | null;
+  secretRole: string | null;
+  score: number;
+}
 
-export const useRoom = (roomCode?: string) => {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [gameState, setGameState] = useState<string>('LOBBY');
-  const [currentTheme, setCurrentTheme] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Listener reativo da sala e subcoleção de jogadores
-  useEffect(() => {
-    if (!roomCode) return;
-    const roomRef = doc(db, 'rooms', roomCode);
-    const unsubRoom = onSnapshot(roomRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setGameState(data.gameState);
-        setCurrentTheme(data.currentTheme || null);
-      }
-    });
-
-    const playersRef = collection(db, `rooms/${roomCode}/players`);
-    const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
-      const p = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Player));
-      setPlayers(p);
-    });
-
-    return () => { unsubRoom(); unsubPlayers(); };
-  }, [roomCode]);
-
-  // Exclusivo do Telão (RN-01)
-  const createRoom = async () => {
-    setIsLoading(true);
-    try {
-      const code = generateRoomCode();
-      await setDoc(doc(db, 'rooms', code), {
-        gameState: 'LOBBY',
-        currentTheme: null,
-        timerEndsAt: null,
-        createdAt: new Date().toISOString()
-      });
-      return code;
-    } finally {
-      setIsLoading(false);
+export function useRoom() {
+  
+  // Função auxiliar para gerar o PIN
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    return result;
   };
 
-  // Exclusivo do Mobile
-  const joinRoom = async (code: string, playerName: string) => {
-    setIsLoading(true);
-    try {
-      const roomRef = doc(db, 'rooms', code);
+  /**
+   * HOST: Cria uma nova sala garantindo unicidade do código
+   */
+  const createRoom = async (hostUid: string): Promise<string> => {
+    let isUnique = false;
+    let roomCode = '';
+
+    // Loop de segurança para garantir que não sobrescrevemos uma sala ativa (Risco de Colisão)
+    while (!isUnique) {
+      roomCode = generateRoomCode();
+      const roomRef = doc(db, 'rooms', roomCode);
       const roomSnap = await getDoc(roomRef);
       
-      if (!roomSnap.exists()) throw new Error('Sala não encontrada');
-      if (roomSnap.data().gameState !== 'LOBBY') throw new Error('A partida já está em andamento');
-
-      const user = await signInSilently();
-      const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-
-      await setDoc(doc(db, `rooms/${code}/players`, user.uid), {
-        id: user.uid,
-        name: playerName,
-        avatar,
-        team: null,
-        secretRole: null,
-        score: 0
-      });
-
-      // RNF-12: Configura a remoção dos dados efêmeros se o usuário perder a conexão abruptamente
-      const cursorRef = ref(rtdb, `rooms/${code}/liveData/cursors/${user.uid}`);
-      const isTypingRef = ref(rtdb, `rooms/${code}/liveData/isTyping/${user.uid}`);
-      onDisconnect(cursorRef).remove();
-      onDisconnect(isTypingRef).remove();
-
-      return user.uid;
-    } finally {
-      setIsLoading(false);
+      if (!roomSnap.exists()) {
+        isUnique = true;
+        // Estrutura inicial do documento da sala baseada no SRS
+        await setDoc(roomRef, {
+          hostId: hostUid,
+          gameState: 'LOBBY' as GameState,
+          createdAt: serverTimestamp(),
+          // O tema e o payload de pontuação serão injetados aqui em fases posteriores
+        });
+      }
     }
+    return roomCode;
   };
 
-  return { createRoom, joinRoom, players, gameState, currentTheme, isLoading };
-};
+  /**
+   * MOBILE: Valida a sala e regista o jogador
+   */
+  const joinRoom = async (roomCode: string, uid: string, payload: { name: string, avatar: string }): Promise<boolean> => {
+    const codeUpper = roomCode.toUpperCase();
+    const roomRef = doc(db, 'rooms', codeUpper);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+      throw new Error('SALA_NAO_ENCONTRADA');
+    }
+
+    const data = roomSnap.data();
+    if (data.gameState !== 'LOBBY') {
+      throw new Error('SALA_JA_INICIOU');
+    }
+
+    // Regista o jogador na sub-coleção. Equipa e Papel ficam a null até a fase de sorteio (Iteração 3)
+    const playerRef = doc(db, `rooms/${codeUpper}/players`, uid);
+    const playerData: PlayerPayload = {
+      name: payload.name,
+      avatar: payload.avatar,
+      team: null,
+      secretRole: null,
+      score: 0
+    };
+
+    await setDoc(playerRef, playerData);
+    return true;
+  };
+
+  return { createRoom, joinRoom };
+}

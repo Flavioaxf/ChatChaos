@@ -1,320 +1,152 @@
-"use client";
+'use client';
+import React, { useState, useEffect, useRef } from 'react';
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import type { Screen, Role } from "@/src/app/page";
-import { PlayerStatusBar } from "../../ui/player-status-bar";
-
-interface GameScreenProps {
-  onNavigate: (screen: Screen) => void;
-  role: Role;
-  theme: string;
-  playerName: string;
+interface MobileGameScreenProps {
+  playerName?: string;
+  avatar?: string;
+  theme?: string;
+  roleColor?: string;
+  initialContext?: string;
+  phase?: 'PREPARE' | 'TYPING'; // NOVA PROP: Controla o momento exato do jogo
+  onCursorMove?: (cursorPosition: number) => void; // NOVA PROP: Avisa o Telão onde o jogador tocou
+  onRealTimeUpdate?: (currentText: string, cursorPosition: number) => void;
 }
 
-const playerColors = {
-  you: "#FF6B35",
-  player2: "#1C1C1C",
-  player3: "#888888",
-  player4: "#C8381E",
-};
-
-const roleLabels: Record<string, string> = {
-  IRRITADO: "CAPS ATIVO",
-  HACKEADO: "BINARIO ATIVO",
-  MANDARIM: "TRADUCAO ATIVA",
-  BEBADO: "EMBARALHA ATIVO",
-};
-
-const mandarimWords: Record<string, string> = {
-  oi: "你好",
-  ola: "你好",
-  obrigado: "谢谢",
-  obrigada: "谢谢",
-  sim: "是",
-  nao: "不",
-  bom: "好",
-  trabalho: "工作",
-  chefe: "老板",
-  grupo: "群",
-  empresa: "公司",
-  tarde: "晚",
-  cedo: "早",
-  ajuda: "帮助",
-  por: "为",
-  favor: "请",
-};
-
-// Initial shared text simulation
-const initialSharedText = [
-  { text: "Oi chefe, claro que ", color: playerColors.player2 },
-  { text: "NAO CONSIGO ", color: playerColors.you },
-  { text: "ajudar, ta bom pra ti ", color: playerColors.player3 },
-  { text: "TRABALHAR ATE ", color: playerColors.you },
-  { text: "meia noite ", color: playerColors.player4 },
-  { text: "MAS A GENTE", color: playerColors.you },
-];
-
-export function GameScreen({ onNavigate, role, theme, playerName }: GameScreenProps) {
-  const [timeLeft, setTimeLeft] = useState(45);
-  const [inputValue, setInputValue] = useState("");
-  const [sharedText, setSharedText] = useState(initialSharedText);
-  const [typingPlayers, setTypingPlayers] = useState(["Ana", "Carol"]);
+export function GameScreen({
+  playerName = 'HACKER_99',
+  avatar = '(>_<)',
+  theme = 'FESTA DA EMPRESA',
+  roleColor = '#06D6A0',
+  initialContext = 'TUDO COMEÇOU QUANDO ',
+  phase = 'TYPING', // Padrão
+  onCursorMove,
+  onRealTimeUpdate
+}: MobileGameScreenProps) {
+  const [currentText, setCurrentText] = useState(initialContext);
   const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Estados da Trava do Cursor
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockIndex, setLockIndex] = useState<number>(0);
+  
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Timer countdown
+  const activeAvatar = isTyping ? avatar.replace(/_|-/g, 'O') : avatar;
+
   useEffect(() => {
-    if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    if (currentText.length > initialContext.length) {
+      setIsTyping(true);
+      const timer = setTimeout(() => setIsTyping(false), 200);
       return () => clearTimeout(timer);
-    } else {
-      onNavigate("word-voting");
     }
-  }, [timeLeft, onNavigate]);
+  }, [currentText, initialContext]);
 
-  // Simulate other players typing
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const players = ["Ana", "Bruno", "Carol", "Diego"];
-      const randomPlayers = players
-        .filter(() => Math.random() > 0.5)
-        .slice(0, 2);
-      setTypingPlayers(randomPlayers);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const applyRoleMechanic = useCallback(
-    (text: string): string => {
-      if (!role) return text;
-      switch (role) {
-        case "IRRITADO":
-          return text.toUpperCase();
-        case "HACKEADO":
-          return text
-            .split("")
-            .map((char) => {
-              if (Math.random() < 0.28 && char !== " ") {
-                return char + (Math.random() > 0.5 ? "0" : "1");
-              }
-              return char;
-            })
-            .join("");
-        case "BEBADO":
-          const swaps: Record<string, string> = {
-            a: "4",
-            e: "3",
-            o: "0",
-            s: "5",
-            t: "7",
-          };
-          return text
-            .split("")
-            .map((char) => {
-              if (Math.random() < 0.18 && swaps[char.toLowerCase()]) {
-                return swaps[char.toLowerCase()];
-              }
-              if (Math.random() < 0.1 && char !== " ") {
-                return char + " ";
-              }
-              return char;
-            })
-            .join("");
-        case "MANDARIM":
-          // Applied on send, not on input
-          return text;
-        default:
-          return text;
-      }
-    },
-    [role]
-  );
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    
-    // Animação de digitação (abre a boca)
-    setIsTyping(true);
-    
-    // Limpa o timeout anterior se houver
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Define um timeout para fechar a boca quando parar de digitar (400ms)
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 400);
-
-    if (role !== "MANDARIM") {
-      setInputValue(applyRoleMechanic(newValue));
-    } else {
-      setInputValue(newValue);
-    }
-  };
-
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-
-    let textToSend = inputValue;
-
-    // Apply Mandarim translation on send
-    if (role === "MANDARIM") {
-      textToSend = inputValue
-        .split(" ")
-        .map((word) => {
-          const lower = word.toLowerCase();
-          return mandarimWords[lower] || word;
-        })
-        .join(" ");
-    }
-
-    setSharedText((prev) => [
-      ...prev,
-      { text: " " + textToSend, color: playerColors.you },
-    ]);
-    setInputValue("");
-    
-    // Garante que a animação pare ao enviar
-    setIsTyping(false);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSend();
-    }
-    // Block backspace/delete
-    if (e.key === "Backspace" || e.key === "Delete") {
+  // Impede o apagar de caracteres
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
     }
   };
 
-  // Limpa o timeout ao desmontar o componente
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
+  // GERENCIADOR DE TOQUE E SELEÇÃO
+  const handleSelect = () => {
+    if (!textAreaRef.current) return;
 
-  const isUrgent = timeLeft <= 10;
+    if (phase === 'PREPARE') {
+      // Fase 1: Livre para escolher a posição. Dispara para o Firebase atualizar no Telão.
+      if (onCursorMove) {
+        onCursorMove(textAreaRef.current.selectionStart);
+      }
+    } else if (isLocked) {
+      // Fase 2: O Caos. Se já digitou a primeira letra, o cursor está travado e não pode mais sair do lugar.
+      textAreaRef.current.selectionStart = lockIndex;
+      textAreaRef.current.selectionEnd = lockIndex;
+    }
+  };
+
+  // GERENCIADOR DE DIGITAÇÃO EM TEMPO REAL
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // Se por acaso conseguir digitar na fase de preparo (ex: teclado físico pareado), ignora
+    if (phase === 'PREPARE') return; 
+
+    const newText = e.target.value;
+
+    if (!isLocked) {
+      // Primeira letra digitada! Aciona a trava.
+      setIsLocked(true);
+      setLockIndex(e.target.selectionStart);
+      setCurrentText(newText);
+    } else {
+      // Já está travado. Move o "cadeado" para frente conforme novas letras entram.
+      const diff = newText.length - currentText.length;
+      const newIndex = lockIndex + (diff > 0 ? diff : 0);
+      setLockIndex(newIndex);
+      setCurrentText(newText);
+    }
+    
+    // Dispara a alteração para o Firebase
+    if (onRealTimeUpdate && textAreaRef.current) {
+      onRealTimeUpdate(newText, textAreaRef.current.selectionStart);
+    }
+  };
 
   return (
-    <div className="min-h-dvh flex flex-col bg-background p-4 sm:p-6 max-w-md mx-auto w-full">
-      <PlayerStatusBar playerName={playerName} role={role} isTyping={isTyping} />
+    <main className="h-[100dvh] w-full bg-[#EDEBE5] text-[#1C1C1C] flex flex-col font-sans p-4 sm:p-6 overflow-hidden select-none">
       
-      {/* Header */}
-      <div className="p-3 sm:p-4 border-b border-border bg-surface flex-shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          {/* Category & Context */}
-          <div className="flex-1 min-w-0">
-            <p className="font-display text-muted text-xs uppercase tracking-wider">
-              {theme.toUpperCase()}
-              <span className="text-muted">_</span>
-            </p>
-            <p className="font-body text-muted text-xs mt-1 line-clamp-2">
-              &quot;Pessoal, preciso de alguem para cobrir o plantao de sabado&quot;
-            </p>
-          </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=VT323&display=swap');
+        .font-pixel { font-family: 'VT323', monospace !important; }
+        .font-project-sans { font-family: 'DM Sans', sans-serif !important; }
+        
+        .shadow-hard { box-shadow: 4px 4px 0px #1C1C1C; }
+        .rounded-brutalist { border-radius: 8px !important; }
+        
+        textarea::-webkit-scrollbar { display: none; }
+        textarea { -ms-overflow-style: none; scrollbar-width: none; -webkit-tap-highlight-color: transparent; }
+      `}} />
 
-          {/* Timer */}
-          <div
-            className={`flex-shrink-0 font-display text-2xl sm:text-3xl tracking-wider transition-colors ${
-              isUrgent ? "text-error" : "text-accent"
-            } ${isUrgent ? "animate-pulse" : ""}`}
-          >
-            {formatTime(timeLeft)}
-          </div>
+      {/* HEADER ENXUTO */}
+      <header className="w-full shrink-0 flex justify-between items-center bg-[#1C1C1C] text-[#F7F5F0] px-3 py-2 border-[3px] border-[#1C1C1C] shadow-hard rounded-brutalist mb-4">
+        <span className="font-pixel text-xl truncate pr-2 uppercase">TEMA: {theme}</span>
+        <div className={`px-2 font-pixel text-xl rounded-[4px] ${phase === 'TYPING' ? 'bg-[#FF6B35] text-[#1C1C1C] animate-pulse' : 'bg-[#F7F5F0] text-[#1C1C1C]'}`}>
+          {phase === 'TYPING' ? 'LIVE' : 'PREPARE'}
         </div>
+      </header>
 
-        {/* Role Strip */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-muted text-xs">SEU PAPEL</span>
-            <span className="font-display text-accent text-sm">{role}_</span>
-          </div>
-          {role && <span className="badge text-[10px]">{roleLabels[role]}</span>}
+      {/* ÁREA DO AVATAR */}
+      <div className="shrink-0 flex items-center justify-between border-[3px] sm:border-[4px] border-[#1C1C1C] bg-[#F7F5F0] p-3 shadow-hard rounded-brutalist mb-4 relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-3" style={{ backgroundColor: roleColor }}></div>
+        <div className="pl-4 font-pixel text-2xl uppercase font-bold tracking-widest text-[#1C1C1C] truncate">
+          {playerName}
+        </div>
+        <div className={`font-pixel text-4xl sm:text-5xl transition-transform duration-75 ${isTyping ? 'scale-110' : 'scale-100'}`} style={{ color: roleColor }}>
+          {activeAvatar}
         </div>
       </div>
 
-      {/* Section Label */}
-      <div className="px-3 sm:px-4 pt-3">
-        <p className="font-display text-muted text-xs uppercase tracking-wider">
-          TEXTO COMPARTILHADO - TODOS EDITAM AO MESMO TEMPO
-        </p>
+      {/* ÁREA DE DIGITAÇÃO (Lida com PREPARE e TYPING) */}
+      <div className="flex-1 min-h-0 flex flex-col relative">
+        <div className={`absolute -top-3 left-4 border-[3px] border-[#1C1C1C] px-3 py-1 font-pixel text-xl z-10 rounded-[4px] transform -rotate-2 transition-colors
+          ${phase === 'PREPARE' ? 'bg-[#06D6A0] text-[#1C1C1C] animate-pulse' : 'bg-[#FF6B35] text-[#1C1C1C]'}`}>
+          {phase === 'PREPARE' ? 'POSICIONE O CURSOR' : 'INJETE O CÓDIGO'}
+        </div>
+        
+        <textarea
+          ref={textAreaRef}
+          value={currentText}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onSelect={handleSelect}
+          onClick={handleSelect}
+          onTouchEnd={handleSelect} // Captura o toque de forma mais precisa em dispositivos móveis
+          onPaste={(e) => e.preventDefault()}
+          readOnly={phase === 'PREPARE'} // <--- O SEGREDO ESTÁ AQUI
+          autoFocus={phase === 'TYPING'}
+          className={`flex-1 w-full bg-[#1C1C1C] text-[#FF6B35] border-[4px] border-[#1C1C1C] rounded-brutalist p-5 pt-8 font-pixel text-3xl sm:text-4xl uppercase leading-relaxed outline-none focus:shadow-hard transition-all resize-none
+            ${phase === 'PREPARE' ? 'opacity-80 cursor-crosshair' : 'opacity-100'}`}
+        />
       </div>
 
-      {/* Shared Text Field */}
-      <div className="flex-1 p-3 sm:p-4 min-h-0 overflow-hidden">
-        <div className="h-full card p-3 sm:p-4 overflow-auto">
-          <p className="font-body text-base sm:text-lg leading-relaxed">
-            {sharedText.map((segment, index) => (
-              <span key={index} style={{ color: segment.color }}>
-                {segment.text}
-              </span>
-            ))}
-            <span className="cursor-blink inline-block w-2 h-5 bg-ink ml-0.5 align-middle" />
-          </p>
-        </div>
-      </div>
-
-      {/* Typing Indicators */}
-      {typingPlayers.length > 0 && (
-        <div className="px-3 sm:px-4 pb-2">
-          <div className="flex flex-wrap gap-2">
-            {typingPlayers.map((player) => (
-              <span
-                key={player}
-                className="font-display text-muted text-xs bg-surface px-2 py-1 rounded"
-              >
-                {player} digitando...
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* No Delete Warning */}
-      <div className="px-3 sm:px-4 pb-3">
-        <div className="bg-[rgba(200,56,30,0.1)] border border-error rounded-lg px-3 py-2 text-center">
-          <span className="font-display text-error text-xs sm:text-sm uppercase tracking-wider">
-            SEM DELETE - O QUE FOI ESCRITO FICOU
-          </span>
-        </div>
-      </div>
-
-      {/* Input Row */}
-      <div className="p-3 sm:p-4 border-t border-border bg-surface flex-shrink-0">
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Digite aqui..."
-            className="flex-1 font-body text-sm sm:text-base bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-accent min-w-0"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim()}
-            className="btn-primary px-4 py-2 text-sm flex-shrink-0 disabled:opacity-50"
-          >
-            ENVIAR
-          </button>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

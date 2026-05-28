@@ -1,133 +1,117 @@
-"use client";
+'use client';
+import React from 'react';
 
-import type { Screen } from "@/src/app/page";
-
-interface ResultsScreenProps {
-  onNavigate: (screen: Screen) => void;
+interface MobileResultsScreenProps {
+  playerName?: string;
+  avatar?: string;
+  role?: string;
+  roleColor?: string;
+  points?: number | string;
+  position?: number | string; // Nova propriedade para a colocação no pódio
+  badge?: string; // A conquista/título do jogador
+  onReturnToLobby?: () => void;
 }
 
-const playerResults = [
-  {
-    rank: 1,
-    name: "Ana",
-    role: "IRRITADO_",
-    mechanic: "caps lock",
-    success: true,
-    points: 330,
-  },
-  {
-    rank: 2,
-    name: "Bruno",
-    role: "HACKEADO_",
-    mechanic: "binario",
-    success: true,
-    points: 280,
-  },
-  {
-    rank: 3,
-    name: "Carol",
-    role: "BEBADO_",
-    mechanic: "embaralha",
-    success: false,
-    points: 150,
-  },
-  {
-    rank: 4,
-    name: "Diego",
-    role: "MANDARIM_",
-    mechanic: "traducao",
-    success: true,
-    points: 120,
-  },
-];
+export function ResultsScreen({
+  playerName = 'HACKER_99',
+  avatar = '(>_<)',
+  role = 'SISTEMA HACKEADO',
+  roleColor = '#C8381E',
+  points = 4500,
+  position = 3, // Padrão de teste: 3º Lugar
+  badge = 'MASTER HACKER',
+  onReturnToLobby
+}: MobileResultsScreenProps) {
 
-const winner = playerResults[0];
+  // Formata a posição para exibir sempre com o símbolo de ordinal (ex: 1º)
+  const formattedPosition = typeof position === 'number' ? `${position}º` : position;
 
-export function ResultsScreen({ onNavigate }: ResultsScreenProps) {
   return (
-    <div className="min-h-dvh flex flex-col bg-background">
-      {/* Winner Banner */}
-      <div className="bg-accent p-4 sm:p-6 text-center">
-        <p className="font-display text-xs sm:text-sm uppercase tracking-wider text-ink opacity-70">
-          CAMPEA DO CAOS
-        </p>
-        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-ink tracking-tight mt-1">
-          {winner.name.toUpperCase()}
-          <span className="text-background">_</span>
-        </h1>
-        <p className="font-display text-sm sm:text-base text-ink opacity-70 mt-1">
-          {winner.points} pts no total
-        </p>
-      </div>
+    <main className="h-[100dvh] w-full bg-[#EDEBE5] text-[#1C1C1C] flex flex-col font-sans p-4 sm:p-6 overflow-hidden select-none justify-between">
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=VT323&display=swap');
+        .font-pixel { font-family: 'VT323', monospace !important; }
+        .font-project-sans { font-family: 'DM Sans', sans-serif !important; }
+        
+        .shadow-hard { box-shadow: 4px 4px 0px #1C1C1C; }
+        .rounded-brutalist { border-radius: 6px !important; }
+      `}} />
 
-      {/* Section Label */}
-      <div className="px-4 sm:px-6 pt-4 sm:pt-6">
-        <p className="font-display text-muted text-xs uppercase tracking-wider">
-          PAPEIS REVELADOS
-        </p>
-      </div>
+      {/* HEADER: Identificação */}
+      <header className="w-full shrink-0 flex justify-between items-center bg-[#1C1C1C] text-[#F7F5F0] px-4 py-2.5 border-[3px] border-[#1C1C1C] shadow-hard rounded-brutalist mb-4">
+        <span className="font-pixel text-xl sm:text-2xl truncate pr-2 uppercase">{playerName}</span>
+        <span className="font-pixel text-2xl sm:text-3xl text-[#FF6B35]">{avatar}</span>
+      </header>
 
-      {/* Results List */}
-      <div className="flex-1 px-4 sm:px-6 py-3 sm:py-4 space-y-2 sm:space-y-3 overflow-auto">
-        {playerResults.map((player) => (
-          <div
-            key={player.rank}
-            className="card p-3 sm:p-4 flex items-center gap-3"
-          >
-            {/* Rank */}
-            <span
-              className={`font-display text-xl sm:text-2xl w-6 sm:w-8 flex-shrink-0 ${
-                player.rank === 1 ? "text-accent" : "text-muted"
-              }`}
-            >
-              {player.rank}
-            </span>
+      {/* ÁREA CENTRAL: Crachá de Resultados */}
+      <div className="flex-1 flex flex-col min-h-0 justify-center w-full max-w-md mx-auto gap-4">
+        
+        {/* Título da Tela */}
+        <div className="w-full bg-[#1C1C1C] border-[3px] border-[#1C1C1C] p-3 text-center rounded-brutalist transform -rotate-1 shadow-hard shrink-0 mb-1">
+          <h2 className="font-pixel text-[#F7F5F0] text-2xl sm:text-3xl font-bold tracking-widest uppercase">
+            DESEMPENHO FINAL_
+          </h2>
+        </div>
 
-            {/* Player Info */}
-            <div className="flex-1 min-w-0">
-              <p className="font-body text-sm sm:text-base font-medium truncate">
-                {player.name}
-              </p>
-              <p className="font-display text-muted text-xs sm:text-sm">
-                {player.role} / {player.mechanic}
-              </p>
+        {/* CRACHÁ BRUTALISTA */}
+        <div className="flex-1 flex flex-col bg-[#F7F5F0] border-[4px] border-[#1C1C1C] rounded-brutalist shadow-hard p-4 sm:p-5 justify-between gap-4 min-h-0">
+          
+          {/* Linha 1: Papel Executado */}
+          <div className="flex flex-col gap-1 border-b-[3px] border-[#1C1C1C] pb-3 shrink-0">
+            <span className="font-pixel text-[#888] text-base sm:text-lg uppercase tracking-widest">PAPEL EXECUTADO:</span>
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 border-[2px] border-[#1C1C1C] shrink-0" style={{ backgroundColor: roleColor }}></div>
+              <span className="font-pixel text-2xl sm:text-3xl uppercase font-bold text-[#1C1C1C] truncate">
+                {role}
+              </span>
+            </div>
+          </div>
+
+          {/* Linha 2: Posição e Pontuação (Lado a lado para economizar espaço e evitar scroll) */}
+          <div className="flex-1 flex gap-3 min-h-0 items-stretch">
+            
+            {/* Bloco de Posição no Pódio */}
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#1C1C1C] border-[3px] border-[#1C1C1C] p-3 shadow-inner">
+              <span className="font-pixel text-[#FF6B35] text-lg sm:text-xl uppercase tracking-widest mb-1 text-center">COLOCAÇÃO</span>
+              <span className="font-pixel text-5xl sm:text-6xl text-[#F7F5F0] font-bold">
+                {formattedPosition}
+              </span>
             </div>
 
-            {/* Status Badge */}
-            <span
-              className={`font-display text-[10px] sm:text-xs uppercase px-2 py-1 rounded flex-shrink-0 ${
-                player.success ? "badge-success" : "badge-error"
-              }`}
-            >
-              {player.success ? "CUMPRIU" : "FALHOU"}
-            </span>
+            {/* Bloco de Pontos Obtidos */}
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#1C1C1C] border-[3px] border-[#1C1C1C] p-3 shadow-inner">
+              <span className="font-pixel text-[#06D6A0] text-lg sm:text-xl uppercase tracking-widest mb-1 text-center">PONTOS</span>
+              <span className="font-pixel text-5xl sm:text-6xl text-[#F7F5F0] font-bold">
+                {points}
+              </span>
+            </div>
 
-            {/* Points */}
-            <span
-              className={`font-display text-lg sm:text-xl flex-shrink-0 ${
-                player.points > 0 ? "text-accent" : "text-muted"
-              }`}
-            >
-              {player.points}
-            </span>
           </div>
-        ))}
+
+          {/* Linha 3: Título / Conquista Conquistada */}
+          <div className="flex flex-col items-center pt-1 shrink-0">
+            <span className="font-pixel text-[#888] text-base sm:text-lg uppercase tracking-widest mb-1">CONQUISTA DA RODADA:</span>
+            <div className="bg-[#FF6B35] text-[#1C1C1C] border-[3px] border-[#1C1C1C] px-4 py-2 w-full text-center shadow-[4px_4px_0px_#1C1C1C] rounded-[4px]">
+              <span className="font-pixel text-xl sm:text-2xl uppercase font-bold tracking-wider block truncate">
+                {badge}
+              </span>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      {/* Divider */}
-      <div className="px-4 sm:px-6">
-        <div className="divider" />
-      </div>
-
-      {/* CTA */}
-      <div className="p-4 sm:p-6">
+      {/* RODAPÉ: Botão de Menu */}
+      <div className="w-full shrink-0 mt-4">
         <button
-          onClick={() => onNavigate("lobby")}
-          className="btn-primary w-full text-sm sm:text-base"
+          onClick={onReturnToLobby}
+          className="w-full bg-[#1C1C1C] text-[#F7F5F0] border-[4px] border-[#1C1C1C] rounded-brutalist p-4 sm:p-5 font-pixel text-2xl sm:text-3xl uppercase tracking-widest font-bold shadow-hard transition-all active:translate-y-1 active:shadow-none hover:bg-[#FF6B35] hover:text-[#1C1C1C]"
         >
-          PROXIMA RODADA
+          [ Desconectar ]
         </button>
       </div>
-    </div>
+
+    </main>
   );
 }

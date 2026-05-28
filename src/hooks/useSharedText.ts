@@ -1,86 +1,133 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { ref, onValue, runTransaction, set } from 'firebase/database';
-import { rtdb } from '@/lib/firebase';
+// src/hooks/useSharedText.ts
+import { useEffect, useState } from "react";
+import {
+  ref,
+  onValue,
+  runTransaction,
+  set,
+  onDisconnect,
+} from "firebase/database";
+import { rtdb } from "@/src/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
-export interface CursorData {
-  position: number;
-  nickname: string;
+export interface Cursor {
+  playerId: string;
+  playerName: string;
   color: string;
+  avatar: string;
+  position: number;
 }
 
-export const useSharedText = (roomCode: string, uid: string) => {
-  const [currentText, setCurrentText] = useState<string>('');
-  const [cursors, setCursors] = useState<Record<string, CursorData>>({});
-  const [activeTypers, setActiveTypers] = useState<Record<string, boolean>>({});
-  
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+export function useSharedText(roomCode: string | null, uid: string | null) {
+  const [currentText, setCurrentText] = useState("");
+  const [activeCursors, setActiveCursors] = useState<Cursor[]>([]);
+  const [isTypingMap, setIsTypingMap] = useState<Record<string, boolean>>({});
 
-  // Listener para ler o texto e cursores globais
   useEffect(() => {
     if (!roomCode) return;
+    const codeUpper = roomCode.toUpperCase();
 
-    const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
-    const cursorsRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors`);
-    const isTypingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping`);
-
-    const unsubText = onValue(textRef, (snapshot) => {
-      setCurrentText(snapshot.val() || '');
+    // 1. Escutar a resposta do terminal (REPLY_)
+    const textRef = ref(rtdb, `rooms/${codeUpper}/liveData/currentText`);
+    const unsubText = onValue(textRef, (snap) => {
+      if (snap.exists()) setCurrentText(snap.val());
     });
 
-    const unsubCursors = onValue(cursorsRef, (snapshot) => {
-      setCursors(snapshot.val() || {});
+    // 2. Escutar a posição dos Cursores dos jogadores
+    const cursorsRef = ref(rtdb, `rooms/${codeUpper}/liveData/cursors`);
+    const unsubCursors = onValue(cursorsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setActiveCursors(
+          Object.keys(data).map((key) => ({ playerId: key, ...data[key] })),
+        );
+      } else {
+        setActiveCursors([]);
+      }
     });
 
-    const unsubIsTyping = onValue(isTypingRef, (snapshot) => {
-      setActiveTypers(snapshot.val() || {});
+    // 3. Escutar quem está a digitar (para animar as bocas ASCII)
+    const typingRef = ref(rtdb, `rooms/${codeUpper}/liveData/isTyping`);
+    const unsubTyping = onValue(typingRef, (snap) => {
+      if (snap.exists()) setIsTypingMap(snap.val());
+      else setIsTypingMap({});
     });
 
     return () => {
       unsubText();
       unsubCursors();
-      unsubIsTyping();
+      unsubTyping();
     };
   }, [roomCode]);
 
-  // Função atómica para anexar texto (Append-Only)
-  const appendCharacter = useCallback(async (char: string, playerName: string, color: string) => {
+  // Função para os Mobiles Injetarem Texto (Atomic Transaction)
+  const injectTextDelta = async (delta: string, position: number) => {
+    if (!roomCode || !delta) return;
+    const textRef = ref(
+      rtdb,
+      `rooms/${roomCode.toUpperCase()}/liveData/currentText`,
+    );
+
+    // Transaction garante que o texto não é sobrescrito, apenas costurado
+    await runTransaction(textRef, (currentVal) => {
+      if (currentVal === null) return currentVal;
+      const safePos = Math.min(position, currentVal.length);
+      return currentVal.slice(0, safePos) + delta + currentVal.slice(safePos);
+    });
+  };
+
+  const updateCursor = async (position: number, playerInfo: any) => {
     if (!roomCode || !uid) return;
+    const cursorRef = ref(
+      rtdb,
+      `rooms/${roomCode.toUpperCase()}/liveData/cursors/${uid}`,
+    );
+    await set(cursorRef, { position, ...playerInfo });
+    onDisconnect(cursorRef).remove(); // Desaparece se cair a net
+  };
 
-    const textRef = ref(rtdb, `rooms/${roomCode}/liveData/currentText`);
-    
-    try {
-      // runTransaction garante que não há colisões de pacotes
-      await runTransaction(textRef, (currentData) => {
-        const baseString = currentData || '';
-        if (baseString.length >= 250) {
-          return baseString; // Limite global de caracteres
-        }
-        return baseString + char;
-      });
+  const setTypingStatus = async (isTyping: boolean) => {
+    if (!roomCode || !uid) return;
+    const typingRef = ref(
+      rtdb,
+      `rooms/${roomCode.toUpperCase()}/liveData/isTyping/${uid}`,
+    );
+    await set(typingRef, isTyping);
+    onDisconnect(typingRef).remove();
+  };
 
-      // Atualiza os metadados visuais do jogador (isTyping e Cursor)
-      const userIsTypingRef = ref(rtdb, `rooms/${roomCode}/liveData/isTyping/${uid}`);
-      const userCursorRef = ref(rtdb, `rooms/${roomCode}/liveData/cursors/${uid}`);
+  const injectTextDeltaWithAuthor = async (
+    delta: string,
+    position: number,
+    authorId: string,
+  ) => {
+    if (!roomCode || !delta) return;
 
-      await set(userIsTypingRef, true);
-      await set(userCursorRef, { 
-        position: currentText.length + 1, 
-        nickname: playerName, 
-        color 
-      });
+    // 1. Injeção visual no RTDB (O texto que o telão vê)
+    await injectTextDelta(delta, position);
 
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      
-      typingTimeoutRef.current = setTimeout(async () => {
-        await set(userIsTypingRef, false);
-      }, 400); // O avatar pára de "falar" após 400ms sem escrever
+    // 2. Persistência de Autoria no Firestore (O 'rastro' para o Scoring)
+    // Usamos um ID único baseado no tempo para cada inserção
+    const wordId = `${Date.now()}`;
+    const wordRef = doc(
+      db,
+      `rooms/${roomCode.toUpperCase()}/scoringPayload`,
+      wordId,
+    );
 
-    } catch (error) {
-      console.error("Erro na transação de digitação RTDB:", error);
-    }
-  }, [roomCode, uid, currentText.length]);
+    await setDoc(wordRef, {
+      word: delta.trim(),
+      authorId: authorId,
+      timestamp: Date.now(),
+    });
+  };
 
-  return { currentText, cursors, activeTypers, appendCharacter };
-};
+  return {
+    currentText,
+    activeCursors,
+    isTypingMap,
+    injectTextDelta,
+    updateCursor,
+    setTypingStatus,
+  };
+}

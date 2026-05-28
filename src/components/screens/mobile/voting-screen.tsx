@@ -1,197 +1,134 @@
-"use client"
-
-import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Star, Heart, ThumbsUp, Sparkles, Check } from "lucide-react"
-import type { Screen } from "@/src/app/page"
+'use client';
+import React, { useState } from 'react';
 
 interface VotingScreenProps {
-  onNavigate: (screen: Screen) => void
+  playerName?: string;
+  avatar?: string;
+  wordsToVote?: string[];
+  maxVotes?: number;
+  onSubmitVotes?: (votes: string[]) => void;
 }
 
-// Texto final fragmentado em palavras/trechos clicáveis
-const textFragments = [
-  { id: 1, text: "Olha,", votes: 0, selected: false },
-  { id: 2, text: "eu acho que", votes: 2, selected: true },
-  { id: 3, text: "NÃO AGUENTO MAIS", votes: 5, selected: true },
-  { id: 4, text: "essa coisa de", votes: 0, selected: false },
-  { id: 5, text: "TRABALHAR ATÉ", votes: 3, selected: true },
-  { id: 6, text: "tarde demais", votes: 1, selected: false },
-  { id: 7, text: "PQ O CHEFE", votes: 4, selected: true },
-  { id: 8, text: "não entende que", votes: 0, selected: false },
-  { id: 9, text: "A GENTE TEM VIDA!!!", votes: 7, selected: true },
-]
+export function VotingScreen({
+  playerName = 'HACKER_99',
+  avatar = '(>_<)',
+  // Simulando a frase completa construída pelos jogadores na ordem cronológica
+  wordsToVote = [
+    'O', 'SISTEMA', 'CAIU', 'PORQUE', 'A', 'GAMBIARRA', 'DO', 'ESTAGIÁRIO', 
+    'DEU', 'TELA AZUL', 'NO', 'FIREWALL', 'E', 'AGORA', 'TUDO', 'ESTÁ', 
+    'PEGANDO', 'FOGO', 'NO', 'SERVIDOR'
+  ],
+  maxVotes = 3, // Atualizado para 3 votos como limite ideal
+  onSubmitVotes
+}: VotingScreenProps) {
+  const [selectedWords, setSelectedWords] = useState<string[]>([]);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-export function VotingScreen({ onNavigate }: VotingScreenProps) {
-  const [fragments, setFragments] = useState(textFragments)
-  const [totalVotes, setTotalVotes] = useState(
-    textFragments.reduce((acc, f) => acc + f.votes, 0)
-  )
+  // Lógica de Toggle: Clicou seleciona, clicou de novo desmarca
+  const toggleVote = (word: string) => {
+    if (isSubmitted) return;
+    
+    if (selectedWords.includes(word)) {
+      setSelectedWords(selectedWords.filter(w => w !== word));
+    } else if (selectedWords.length < maxVotes) {
+      setSelectedWords([...selectedWords, word]);
+    }
+  };
 
-  const handleVote = (id: number) => {
-    setFragments(prev => 
-      prev.map(f => {
-        if (f.id === id) {
-          const newVotes = f.votes + 1
-          return { ...f, votes: newVotes, selected: true }
-        }
-        return f
-      })
-    )
-    setTotalVotes(prev => prev + 1)
-  }
+  const handleConfirm = () => {
+    setIsSubmitted(true);
+    if (onSubmitVotes) {
+      onSubmitVotes(selectedWords);
+    }
+  };
 
-  const getFragmentStyle = (fragment: typeof textFragments[0]) => {
-    if (fragment.votes >= 5) return "bg-[#f7e018] text-[#1a0a2e] border-[#f7e018]"
-    if (fragment.votes >= 3) return "bg-[#ff3c78] text-white border-[#ff3c78]"
-    if (fragment.selected) return "bg-[#00d4ff] text-[#1a0a2e] border-[#00d4ff]"
-    return "bg-[#3d2a5f] text-white border-[#5a3d8a]"
-  }
+  const remainingVotes = maxVotes - selectedWords.length;
 
   return (
-    <div className="min-h-screen bg-[#1a0a2e] flex flex-col">
-      {/* Header */}
-      <div className="p-4 bg-[#2d1b4e] border-b-4 border-black">
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="flex items-center justify-center gap-3"
-        >
-          <Star className="w-8 h-8 text-[#f7e018]" />
-          <h1 className="font-sans text-3xl text-[#f7e018] text-outline">
-            HORA DE VOTAR!
-          </h1>
-          <Star className="w-8 h-8 text-[#f7e018]" />
-        </motion.div>
-        <p className="text-center text-[#b8a5d1] font-sans mt-2">
-          Toque nas palavras mais engraçadas!
-        </p>
+    <main className="h-[100dvh] w-full bg-[#EDEBE5] text-[#1C1C1C] flex flex-col font-sans p-4 sm:p-6 overflow-hidden select-none">
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=VT323&display=swap');
+        .font-pixel { font-family: 'VT323', monospace !important; }
+        .font-project-sans { font-family: 'DM Sans', sans-serif !important; }
+        
+        .shadow-hard { box-shadow: 4px 4px 0px #1C1C1C; }
+        .rounded-brutalist { border-radius: 6px !important; }
+
+        /* Esconde a barra de rolagem mas mantém a funcionalidade no box interno */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}} />
+
+      {/* HEADER: Fixo no topo */}
+      <header className="w-full shrink-0 flex justify-between items-center bg-[#1C1C1C] text-[#F7F5F0] px-4 py-2.5 border-[3px] border-[#1C1C1C] shadow-hard rounded-brutalist mb-4 sm:mb-6">
+        <span className="font-pixel text-xl sm:text-2xl truncate pr-2 uppercase">{playerName}</span>
+        <span className="font-pixel text-2xl sm:text-3xl text-[#FF6B35]">{avatar}</span>
+      </header>
+
+      {/* PAINEL DE INSTRUÇÕES: Fixo */}
+      <div className="w-full shrink-0 bg-[#1C1C1C] border-[3px] border-[#1C1C1C] p-3 flex flex-col items-center justify-center rounded-brutalist shadow-hard mb-4">
+        <h2 className="font-pixel text-[#FF6B35] text-2xl sm:text-3xl font-bold tracking-widest uppercase">
+          VOTE NO CAOS_
+        </h2>
+        <span className="font-pixel text-[#F7F5F0] text-lg sm:text-xl uppercase mt-1 text-center">
+          {isSubmitted 
+            ? 'VOTOS COMPUTADOS' 
+            : `ESCOLHA ATÉ ${maxVotes} TERMOS (${remainingVotes} RESTANTES)`}
+        </span>
       </div>
 
-      {/* Área do texto */}
-      <div className="flex-1 p-4 overflow-auto">
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-[#2d1b4e] rounded-2xl neo-brutal p-4"
-        >
-          {/* Título do texto */}
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#5a3d8a]">
-            <Sparkles className="w-5 h-5 text-[#00d4ff]" />
-            <span className="font-sans text-lg text-[#00d4ff]">TEXTO FINAL:</span>
-          </div>
+      {/* CAIXA DE TEXTO CRONOLÓGICA (Com scroll interno isolado) */}
+      <div className="flex-1 bg-[#F7F5F0] border-[4px] border-[#1C1C1C] rounded-brutalist shadow-hard overflow-hidden flex flex-col mb-4 relative">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-5">
+          <div className="flex flex-wrap gap-2 sm:gap-3 content-start">
+            {wordsToVote.map((word, index) => {
+              // Combinamos o index para garantir keys únicas caso haja palavras repetidas (ex: dois "NO")
+              const uniqueId = `${word}-${index}`; 
+              const isSelected = selectedWords.includes(uniqueId);
+              const isDisabled = isSubmitted || (!isSelected && selectedWords.length >= maxVotes);
 
-          {/* Fragmentos clicáveis */}
-          <div className="flex flex-wrap gap-2">
-            <AnimatePresence>
-              {fragments.map((fragment, index) => (
-                <motion.button
-                  key={fragment.id}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.1, rotate: Math.random() > 0.5 ? 3 : -3 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleVote(fragment.id)}
-                  className={`
-                    relative px-3 py-2 rounded-xl border-3 font-sans text-lg
-                    transition-all duration-200
-                    ${getFragmentStyle(fragment)}
-                    ${fragment.votes > 0 ? 'neo-brutal-sm' : 'border-2'}
+              return (
+                <button
+                  key={uniqueId}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => toggleVote(uniqueId)}
+                  className={`min-h-[44px] border-[3px] border-[#1C1C1C] rounded-[4px] px-3 py-1.5 font-pixel text-xl sm:text-2xl uppercase tracking-wide transition-all select-none
+                    ${isSelected 
+                      ? 'bg-[#FF6B35] text-[#1C1C1C] translate-y-1' 
+                      : 'bg-[#EDEBE5] text-[#1C1C1C] hover:bg-[#1C1C1C] hover:text-[#EDEBE5] active:translate-y-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-[#CCC] disabled:hover:text-[#1C1C1C]'
+                    }
                   `}
-                  style={{
-                    transform: fragment.selected 
-                      ? `rotate(${Math.random() * 4 - 2}deg)` 
-                      : undefined,
-                    boxShadow: fragment.votes >= 5 
-                      ? '0 0 15px #f7e018' 
-                      : fragment.votes >= 3 
-                        ? '0 0 10px #ff3c78' 
-                        : undefined
-                  }}
                 >
-                  {fragment.text}
-                  
-                  {/* Badge de votos */}
-                  {fragment.votes > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-2 -right-2 bg-[#39ff14] text-[#1a0a2e] rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold border-2 border-black"
-                    >
-                      {fragment.votes}
-                    </motion.span>
-                  )}
-
-                  {/* Estrela para favoritos */}
-                  {fragment.votes >= 5 && (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                      className="absolute -top-3 -left-3"
-                    >
-                      <Star className="w-5 h-5 text-[#f7e018] fill-[#f7e018]" />
-                    </motion.div>
-                  )}
-                </motion.button>
-              ))}
-            </AnimatePresence>
+                  {word}
+                </button>
+              );
+            })}
           </div>
-
-          {/* Legenda */}
-          <div className="mt-6 pt-4 border-t-2 border-dashed border-[#5a3d8a]">
-            <p className="text-[#b8a5d1] font-sans text-sm mb-3">Legenda:</p>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-[#f7e018]" />
-                <span className="text-xs text-[#b8a5d1] font-sans">5+ votos</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-[#ff3c78]" />
-                <span className="text-xs text-[#b8a5d1] font-sans">3-4 votos</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-[#00d4ff]" />
-                <span className="text-xs text-[#b8a5d1] font-sans">Selecionado</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        </div>
+        {/* Sombra interna para indicar que tem scroll se o texto for muito longo */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#F7F5F0] to-transparent pointer-events-none"></div>
       </div>
 
-      {/* Footer com contador de votos */}
-      <div className="p-4">
-        {/* Contador flutuante */}
-        <motion.div
-          animate={{ 
-            y: [0, -5, 0],
-            scale: [1, 1.02, 1]
-          }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="bg-gradient-to-r from-[#ff3c78] via-[#f7e018] to-[#00d4ff] p-1 rounded-2xl mb-4"
-        >
-          <div className="bg-[#2d1b4e] rounded-xl px-6 py-3 flex items-center justify-center gap-3">
-            <Heart className="w-6 h-6 text-[#ff3c78] fill-[#ff3c78]" />
-            <span className="font-sans text-2xl text-white">
-              [ {totalVotes} votos no total ]
-            </span>
-            <ThumbsUp className="w-6 h-6 text-[#f7e018]" />
+      {/* RODAPÉ DO TERMINAL: Fixo na base */}
+      <div className="w-full shrink-0">
+        {!isSubmitted ? (
+          <button
+            onClick={handleConfirm}
+            disabled={selectedWords.length === 0}
+            className="w-full bg-[#1C1C1C] text-[#F7F5F0] border-[4px] border-[#1C1C1C] rounded-brutalist p-4 sm:p-5 font-pixel text-2xl sm:text-3xl uppercase tracking-widest font-bold shadow-hard transition-all active:translate-y-1 active:shadow-none hover:bg-[#FF6B35] hover:text-[#1C1C1C] disabled:opacity-50 disabled:bg-[#CCC] disabled:text-[#888]"
+          >
+            &gt; CONFIRMAR_VOTOS
+          </button>
+        ) : (
+          <div className="w-full bg-[#1C1C1C] border-[4px] border-[#1C1C1C] text-[#F7F5F0] p-4 sm:p-5 text-center rounded-brutalist font-pixel text-xl sm:text-2xl uppercase tracking-widest flex flex-col items-center gap-2 shadow-hard">
+            <span className="text-[#06D6A0] animate-pulse">&gt; DADOS ENVIADOS</span>
+            <span className="text-sm sm:text-base text-[#888]">OLHE PARA O TELÃO</span>
           </div>
-        </motion.div>
-
-        {/* Botão de confirmar */}
-        <motion.button
-          onClick={() => onNavigate("results")}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full bg-[#39ff14] rounded-2xl neo-brutal py-4 px-6 flex items-center justify-center gap-3"
-        >
-          <Check className="w-8 h-8 text-[#1a0a2e]" strokeWidth={3} />
-          <span className="font-sans text-2xl text-[#1a0a2e]">
-            CONFIRMAR VOTOS
-          </span>
-        </motion.button>
+        )}
       </div>
-    </div>
-  )
+
+    </main>
+  );
 }
