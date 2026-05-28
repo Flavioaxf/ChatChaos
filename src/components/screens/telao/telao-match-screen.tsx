@@ -422,7 +422,9 @@ export default function TelaoMatchScreen({
       {phase === "SHOW_TEMPLATE_ZOOM" && (
         <div className={`absolute inset-0 z-[400] flex flex-col items-center justify-center p-12 bg-black bg-opacity-80 backdrop-blur-sm transition-all duration-700 ${templateShrinking ? "opacity-0 scale-90" : "opacity-100 scale-100"}`}>
           <div className="max-w-5xl w-full flex flex-col items-center">
-            <h3 className="font-pixel text-[#F7F5F0] text-3xl uppercase tracking-widest mb-8 bg-[#1C1C1C] px-6 py-2 border-[4px] border-[#333]">// DESCRIPTOGRAFANDO RASCUNHO_</h3>
+            <h3 className="font-pixel text-[#F7F5F0] text-3xl uppercase tracking-widest mb-8 bg-[#1C1C1C] px-6 py-2 border-[4px] border-[#333]">
+              {"// DESCRIPTOGRAFANDO RASCUNHO_"}
+            </h3>
             <div className="bg-[#FF6B35] text-[#1C1C1C] border-[6px] border-[#1C1C1C] px-12 py-8 shadow-[16px_16px_0px_#1C1C1C] transform -rotate-2">
               <p className="font-pixel text-5xl md:text-7xl font-bold uppercase text-center leading-snug">
                 {typedTemplate}<span className="animate-blink text-[#1C1C1C]">|</span>

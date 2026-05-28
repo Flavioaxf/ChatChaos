@@ -139,7 +139,7 @@ export default function TelaoJogoPage() {
             await updateDoc(doc(db, "rooms", roomCode), { gameState: "TYPING_ROUND_1" });
           }}
         />
-      )}
+      );
 
       {/* 3. TELA DE PARTIDA EM TEMPO REAL */}
       {gameState === "TYPING_ROUND_1" && (
@@ -153,7 +153,7 @@ export default function TelaoJogoPage() {
           activeCursors={activeCursors} 
           isTypingMap={isTypingMap} 
         />
-      )}
+      );
 
       {/* 4. TELA DE RESULTADOS */}
       {gameState === "RESULTS" && (
