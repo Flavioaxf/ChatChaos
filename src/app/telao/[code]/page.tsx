@@ -1,10 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { rtdb } from "@/src/lib/firebase";
+import { rtdb, db } from "@/src/lib/firebase";
 import { ref, set } from "firebase/database";
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/src/lib/firebase";
 
 import { useSharedText } from "../../../hooks/useSharedText";
 import { useGameFlow } from "../../../hooks/useGameFlow";
@@ -36,7 +35,7 @@ const RESPOSTAS_INICIAIS: Record<string, string> = {
 export default function TelaoJogoPage() {
   const params = useParams();
   const roomCode = params.code as string;
-  
+
   const {
     gameState,
     roomData,
@@ -46,7 +45,7 @@ export default function TelaoJogoPage() {
     hostLockTyping,
   } = useGameFlow(roomCode);
 
-  const { currentText, activeCursors, isTypingMap } = useSharedText(roomCode, "HOST");
+  const { currentText, activeCursors } = useSharedText(roomCode, "HOST");
 
   const [currentRound, setCurrentRound] = useState(1);
   const [activeTeam, setActiveTeam] = useState("TIME_A");
@@ -54,7 +53,7 @@ export default function TelaoJogoPage() {
 
   useEffect(() => {
     if (!players || players.length === 0) return;
-    
+
     if (sincronizedPlayers.length === players.length && sincronizedPlayers.every(p => p.team !== undefined)) {
       return;
     }
@@ -63,14 +62,14 @@ export default function TelaoJogoPage() {
       ...p,
       team: index % 2 === 0 ? "TIME_A" : "TIME_B"
     }));
-    
+
     setSincronizedPlayers(mapped);
 
     mapped.forEach(async (p) => {
       try {
         await set(ref(rtdb, `rooms/${roomCode}/liveData/players/${p.id}/team`), p.team);
       } catch (e) {
-        console.error("Erro ao salvar time no Realtime Database:", e);
+        console.error("Erro ao salvar time", e);
       }
     });
   }, [players, roomCode, sincronizedPlayers.length]);
@@ -81,7 +80,7 @@ export default function TelaoJogoPage() {
       TEMAS_DISPONIVEIS.forEach(t => (contagem[t] = 0));
 
       let totalVotos = 0;
-      
+
       players.forEach(p => {
         if (p.votedTheme && TEMAS_DISPONIVEIS.includes(p.votedTheme)) {
           contagem[p.votedTheme] = (contagem[p.votedTheme] || 0) + 1;
@@ -96,12 +95,7 @@ export default function TelaoJogoPage() {
       } else {
         const maxVotos = Math.max(...Object.values(contagem));
         const maisVotados = Object.keys(contagem).filter(tema => contagem[tema] === maxVotos);
-
-        if (maisVotados.length > 1) {
-          temaVencedor = maisVotados[Math.floor(Math.random() * maisVotados.length)];
-        } else {
-          temaVencedor = maisVotados[0];
-        }
+        temaVencedor = maisVotados.length > 1 ? maisVotados[Math.floor(Math.random() * maisVotados.length)] : maisVotados[0];
       }
 
       const contextosPossiveis = CONTEXTOS_POR_TEMA[temaVencedor] || CONTEXTOS_POR_TEMA["CIBERSEGURANÇA NA UERN"];
@@ -115,7 +109,7 @@ export default function TelaoJogoPage() {
       });
 
     } catch (error) {
-      console.error("Erro ao apurar votação:", error);
+      console.error("Erro apuracao", error);
     }
   }, [players, roomCode]);
 
@@ -129,34 +123,36 @@ export default function TelaoJogoPage() {
   }, [players, gameState, apurarEAvancarTema]);
 
   const handleNextRoundOrEnd = async () => {
-  if (currentRound === 1) {
-    setCurrentRound(2);
-    setActiveTeam("TIME_B");
+    if (currentRound === 1) {
+      setCurrentRound(2);
+      setActiveTeam("TIME_B");
 
-    const temaAtual = roomData?.theme || "CIBERSEGURANÇA NA UERN";
-    const rascunhoRound2 = RESPOSTAS_INICIAIS[temaAtual] || "Iniciando rascunho...";
+      const temaAtual = roomData?.theme || "CIBERSEGURANÇA NA UERN";
+      const rascunhoRound2 = RESPOSTAS_INICIAIS[temaAtual] || "Iniciando rascunho...";
 
-    await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "PREPARE");
-    await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), rascunhoRound2);
+      await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "PREPARE");
+      await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), rascunhoRound2);
 
-    await updateDoc(doc(db, "rooms", roomCode), {
-      gameState: "TYPING_ROUND_2",
-      activeTeam: "TIME_B",
-      currentRound: 2,
-      matchPhase: "PREPARE",
-    });
-  } else {
-    await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "LOCK");
-    await updateDoc(doc(db, "rooms", roomCode), { gameState: "LEADERBOARD" });
+      await updateDoc(doc(db, "rooms", roomCode), {
+        gameState: "TYPING_ROUND_2",
+        activeTeam: "TIME_B",
+        currentRound: 2,
+        matchPhase: "PREPARE",
+      });
+    } else {
+      await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "LOCK");
+      await updateDoc(doc(db, "rooms", roomCode), { gameState: "LEADERBOARD" });
+    }
+  };
+
+  if (!gameState) {
+    return (<div className="h-screen w-screen bg-[#1C1C1C]"></div>);
   }
-};
-
-  if (!gameState) return <div className="h-screen w-screen bg-[#1C1C1C]" />;
 
   return (
     <div className="relative min-h-screen font-sans bg-[#F7F5F0]">
       <style dangerouslySetInnerHTML={{__html: `@keyframes revealLobby { 0%, 20% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } } .animate-reveal { animation: revealLobby 1.2s ease-out forwards; }`}} />
-      
+
       <div className="fixed inset-0 z-[9999] bg-[#1C1C1C] animate-reveal pointer-events-none flex items-center justify-center">
         <span className="font-mono text-[#FF6B35] text-2xl tracking-widest animate-pulse">LOBBY_MAINFRAME_ONLINE_</span>
       </div>
@@ -164,8 +160,8 @@ export default function TelaoJogoPage() {
       {gameState === "LOBBY" && (
         <TelaoLobbyScreen
           roomCode={roomCode}
-          players={sincronizedPlayers} 
-          onStartGame={hostStartThemeVoting} 
+          players={sincronizedPlayers}
+          onStartGame={hostStartThemeVoting}
         />
       )}
 
@@ -179,7 +175,6 @@ export default function TelaoJogoPage() {
           onSequenceComplete={async () => {
             try {
               const listaPapeis = ['NORMAL', 'HACKEADO', 'INVERSOR', 'BEBADO', 'MANDARIM'];
-              
               const promises = sincronizedPlayers.map(async (player) => {
                 const papelSorteado = listaPapeis[Math.floor(Math.random() * listaPapeis.length)];
                 return set(ref(rtdb, `rooms/${roomCode}/liveData/players/${player.id}/secretRole`), papelSorteado);
@@ -189,16 +184,15 @@ export default function TelaoJogoPage() {
 
               const temaDefinido = roomData?.theme || "CIBERSEGURANÇA NA UERN";
               const fraseInicialEngracada = RESPOSTAS_INICIAIS[temaDefinido] || "Inicializando terminal...";
-              
+
               await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), fraseInicialEngracada);
               await updateDoc(doc(db, "rooms", roomCode), { gameState: "TYPING_ROUND_1" });
             } catch (error) {
-              console.error("Erro ao distribuir papéis caóticos no Realtime:", error);
+              console.error("Erro", error);
             }
           }}
         />
-      )} 
-      {/* ☝️ O erro 1 estava aqui! Fechado com )} corretamente agora. */}
+      )}
 
       {gameState === "TYPING_ROUND_1" && (
         <TelaoMatchScreen
@@ -213,12 +207,11 @@ export default function TelaoJogoPage() {
             return { ...c, team: match?.team || "TIME_A" };
           })}
           onRoundComplete={handleNextRoundOrEnd}
-          hostStartTyping={hostStartTyping}   
-          hostLockTyping={hostLockTyping}     
+          hostStartTyping={hostStartTyping}
+          hostLockTyping={hostLockTyping}
         />
       )}
 
-      {/* ROUND 2 — time B digita, time A vota */}
       {gameState === "TYPING_ROUND_2" && (
         <TelaoMatchScreen
           currentRound={2}
@@ -235,12 +228,11 @@ export default function TelaoJogoPage() {
           hostStartTyping={hostStartTyping}
           hostLockTyping={hostLockTyping}
         />
-      )} 
-      {/* ☝️ O erro 2 estava aqui! Fechado com )} corretamente agora. */}
+      )}
 
       {gameState === "RESULTS" && (
         <TelaoResultsScreen
-          rankings={sincronizedPlayers} 
+          rankings={sincronizedPlayers}
           onNewGame={async () => {
             setCurrentRound(1);
             setActiveTeam("TIME_A");
