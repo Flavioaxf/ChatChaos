@@ -175,7 +175,7 @@ export function useGameFlow(roomCode: string | null) {
     selectedTheme: string,
     contextTemplate: string,
   ) => {
-    if (!roomCode || players.length < 3) return;
+    if (!roomCode || players.length < 2) return;
 
     // Algoritmo de Fisher-Yates para embaralhar a array
     const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);

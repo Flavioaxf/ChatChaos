@@ -25,8 +25,8 @@ export default function TelaoLobbyScreen({
   const [fakePlayerCount, setFakePlayerCount] = useState(players.length);
   const [dumpLogs, setDumpLogs] = useState<string[]>([]);
 
-  // REGRA DO BACKEND: Mínimo de 3 jogadores para formar times
-  const minPlayers = 3;
+  // REGRA DO BACKEND: Mínimo de 2 jogadores para formar times
+  const minPlayers = 2;
 
   useEffect(() => {
     const interval = setInterval(() => {
