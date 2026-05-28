@@ -201,7 +201,7 @@ export default function TelaoJogoPage() {
             }
           }}
         />
-      )}
+      );
 
       {gameState === "TYPING_ROUND_1" && (
         <TelaoMatchScreen
@@ -238,7 +238,7 @@ export default function TelaoJogoPage() {
           hostStartTyping={hostStartTyping}
           hostLockTyping={hostLockTyping}
         />
-      )}
+      );
 
       {gameState === "RESULTS" && (
         <TelaoResultsScreen

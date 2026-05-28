@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -424,7 +425,9 @@ export default function TelaoFinalResultsScreen({
         <div className="absolute inset-0 z-[200] bg-[#EDEBE5] flex flex-col p-6 md:p-10 animate-fade-in h-screen">
           
           <header className="shrink-0 w-full bg-[#1C1C1C] border-[6px] border-[#1C1C1C] rounded-[4px] px-8 py-4 shadow-hard text-center mb-8 z-20">
-            <h1 className="font-pixel text-[#FF6B35] text-5xl uppercase tracking-[0.2em]">// DOSSIÊ DE INVASÃO ENCERRADO</h1>
+            <h1 className="font-pixel text-[#FF6B35] text-5xl uppercase tracking-[0.2em]">
+              &#47;&#47; DOSSIÊ DE INVASÃO ENCERRADO
+            </h1>
           </header>
 
           <main className="flex-1 flex gap-8 w-full max-w-7xl mx-auto min-h-0 mb-8">

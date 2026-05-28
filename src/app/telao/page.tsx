@@ -175,7 +175,7 @@ export default function TelaoMenuPage() {
             <div className="relative z-10 w-full max-w-[90%] md:max-w-xl lg:max-w-2xl xl:max-w-3xl bg-[#F7F5F0] border-[4px] border-b-[12px] lg:border-b-[16px] border-r-[12px] lg:border-r-[16px] border-[#1C1C1C] rounded-[8px] flex flex-col shadow-2xl mt-8">
               
               <div className="bg-[#1C1C1C] text-[#F7F5F0] p-2 md:p-3 flex justify-between items-center text-sm font-pixel tracking-widest uppercase border-b-[4px] border-[#1C1C1C]">
-                <span>// AUTH_MODULE_v2.0</span>
+                <span>{"// AUTH_MODULE_v2.0"}</span>
                 <span className="text-[#FF6B35] animate-pulse">RESTRICTED_ACCESS</span>
               </div>
 
