@@ -42,8 +42,8 @@ export default function TelaoJogoPage() {
     roomData,
     players,
     hostStartThemeVoting,
-    hostStartTyping,   // ← ADICIONA
-    hostLockTyping,    // ← ADICIONA
+    hostStartTyping,
+    hostLockTyping,
   } = useGameFlow(roomCode);
 
   const { currentText, activeCursors, isTypingMap } = useSharedText(roomCode, "HOST");
@@ -52,11 +52,9 @@ export default function TelaoJogoPage() {
   const [activeTeam, setActiveTeam] = useState("TIME_A");
   const [sincronizedPlayers, setSincronizedPlayers] = useState<any[]>([]);
 
-  // CORREÇÃO: Travas estritas de comparação para impedir o loop infinito de re-render do player array
   useEffect(() => {
     if (!players || players.length === 0) return;
     
-    // Verifica se já realizamos a sincronização idêntica para evitar disparar setState de novo
     if (sincronizedPlayers.length === players.length && sincronizedPlayers.every(p => p.team !== undefined)) {
       return;
     }
@@ -138,11 +136,9 @@ export default function TelaoJogoPage() {
     const temaAtual = roomData?.theme || "CIBERSEGURANÇA NA UERN";
     const rascunhoRound2 = RESPOSTAS_INICIAIS[temaAtual] || "Iniciando rascunho...";
 
-    // Reseta a fase para PREPARE no RTDB para o Round 2
     await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "PREPARE");
     await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), rascunhoRound2);
 
-    // Avança o gameState para TYPING_ROUND_2 no Firebase
     await updateDoc(doc(db, "rooms", roomCode), {
       gameState: "TYPING_ROUND_2",
       activeTeam: "TIME_B",
@@ -201,7 +197,8 @@ export default function TelaoJogoPage() {
             }
           }}
         />
-      );
+      )} 
+      {/* ☝️ O erro 1 estava aqui! Fechado com )} corretamente agora. */}
 
       {gameState === "TYPING_ROUND_1" && (
         <TelaoMatchScreen
@@ -216,8 +213,8 @@ export default function TelaoJogoPage() {
             return { ...c, team: match?.team || "TIME_A" };
           })}
           onRoundComplete={handleNextRoundOrEnd}
-          hostStartTyping={hostStartTyping}   // ← ADICIONA
-          hostLockTyping={hostLockTyping}     // ← ADICIONA
+          hostStartTyping={hostStartTyping}   
+          hostLockTyping={hostLockTyping}     
         />
       )}
 
@@ -238,7 +235,8 @@ export default function TelaoJogoPage() {
           hostStartTyping={hostStartTyping}
           hostLockTyping={hostLockTyping}
         />
-      );
+      )} 
+      {/* ☝️ O erro 2 estava aqui! Fechado com )} corretamente agora. */}
 
       {gameState === "RESULTS" && (
         <TelaoResultsScreen
