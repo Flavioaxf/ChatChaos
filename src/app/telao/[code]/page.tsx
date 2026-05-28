@@ -28,6 +28,11 @@ const CONTEXTOS_POR_TEMA: Record<string, string[]> = {
   ]
 };
 
+const RESPOSTAS_INICIAIS: Record<string, string> = {
+  "CIBERSEGURANÇA NA UERN": "Prezado reitor, o SIGAA caiu porque cliquei em um link de lanche gratis no RU e agora tem um urubu digital travando a minha tela...",
+  "GESTÃO E PROTEÇÃO ANIMAL": "Atenção CampusPet, os cachorros dominaram a guarita do bloco de computacao, confiscaram os crachas e exigem saches de carne imediatamente..."
+};
+
 export default function TelaoJogoPage() {
   const params = useParams();
   const roomCode = params.code as string;
@@ -37,11 +42,41 @@ export default function TelaoJogoPage() {
     roomData,
     players,
     hostStartThemeVoting,
+    hostStartTyping,   // ← ADICIONA
+    hostLockTyping,    // ← ADICIONA
   } = useGameFlow(roomCode);
 
   const { currentText, activeCursors, isTypingMap } = useSharedText(roomCode, "HOST");
 
-  // Função robusta de apuração de votos com critérios de desempate e seleção aleatória
+  const [currentRound, setCurrentRound] = useState(1);
+  const [activeTeam, setActiveTeam] = useState("TIME_A");
+  const [sincronizedPlayers, setSincronizedPlayers] = useState<any[]>([]);
+
+  // CORREÇÃO: Travas estritas de comparação para impedir o loop infinito de re-render do player array
+  useEffect(() => {
+    if (!players || players.length === 0) return;
+    
+    // Verifica se já realizamos a sincronização idêntica para evitar disparar setState de novo
+    if (sincronizedPlayers.length === players.length && sincronizedPlayers.every(p => p.team !== undefined)) {
+      return;
+    }
+
+    const mapped = players.map((p, index) => ({
+      ...p,
+      team: index % 2 === 0 ? "TIME_A" : "TIME_B"
+    }));
+    
+    setSincronizedPlayers(mapped);
+
+    mapped.forEach(async (p) => {
+      try {
+        await set(ref(rtdb, `rooms/${roomCode}/liveData/players/${p.id}/team`), p.team);
+      } catch (e) {
+        console.error("Erro ao salvar time no Realtime Database:", e);
+      }
+    });
+  }, [players, roomCode, sincronizedPlayers.length]);
+
   const apurarEAvancarTema = React.useCallback(async () => {
     try {
       const contagem: Record<string, number> = {};
@@ -49,7 +84,6 @@ export default function TelaoJogoPage() {
 
       let totalVotos = 0;
       
-      // Contabiliza os votos reais vindos dos jogadores
       players.forEach(p => {
         if (p.votedTheme && TEMAS_DISPONIVEIS.includes(p.votedTheme)) {
           contagem[p.votedTheme] = (contagem[p.votedTheme] || 0) + 1;
@@ -60,33 +94,26 @@ export default function TelaoJogoPage() {
       let temaVencedor = "";
 
       if (totalVotos === 0) {
-        // Regra 1: Nenhum tema votado -> Escolhe um aleatoriamente entre todos
         temaVencedor = TEMAS_DISPONIVEIS[Math.floor(Math.random() * TEMAS_DISPONIVEIS.length)];
       } else {
-        // Encontra o maior número de votos
         const maxVotos = Math.max(...Object.values(contagem));
-        // Filtra quais temas alcançaram esse maior número (para verificar empates)
         const maisVotados = Object.keys(contagem).filter(tema => contagem[tema] === maxVotos);
 
         if (maisVotados.length > 1) {
-          // Regra 2: Caso de empate -> Escolhe aleatoriamente entre os mais votados
           temaVencedor = maisVotados[Math.floor(Math.random() * maisVotados.length)];
         } else {
-          // Regra 3: Vitória limpa por maioria de votos
           temaVencedor = maisVotados[0];
         }
       }
 
-      // Sorteia o contexto correspondente ao tema vencedor
       const contextosPossiveis = CONTEXTOS_POR_TEMA[temaVencedor] || CONTEXTOS_POR_TEMA["CIBERSEGURANÇA NA UERN"];
       const contextoSorteado = contextosPossiveis[Math.floor(Math.random() * contextosPossiveis.length)];
 
-      // ATUALIZAÇÃO CRUCIAL NO FIRESTORE: Muda o estado global para destravar o Mobile!
       const roomRef = doc(db, "rooms", roomCode);
       await updateDoc(roomRef, {
         theme: temaVencedor,
         contextText: contextoSorteado,
-        gameState: "CONTEXT_REVEAL" // Avança a fase globalmente!
+        gameState: "CONTEXT_REVEAL"
       });
 
     } catch (error) {
@@ -94,7 +121,6 @@ export default function TelaoJogoPage() {
     }
   }, [players, roomCode]);
 
-  // Monitora se todos os jogadores já votaram para acelerar o avanço
   useEffect(() => {
     if (gameState === "THEME_VOTING" && players.length > 0) {
       const todosVotaram = players.every(p => p.votedTheme && p.votedTheme !== "");
@@ -103,6 +129,31 @@ export default function TelaoJogoPage() {
       }
     }
   }, [players, gameState, apurarEAvancarTema]);
+
+  const handleNextRoundOrEnd = async () => {
+  if (currentRound === 1) {
+    setCurrentRound(2);
+    setActiveTeam("TIME_B");
+
+    const temaAtual = roomData?.theme || "CIBERSEGURANÇA NA UERN";
+    const rascunhoRound2 = RESPOSTAS_INICIAIS[temaAtual] || "Iniciando rascunho...";
+
+    // Reseta a fase para PREPARE no RTDB para o Round 2
+    await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "PREPARE");
+    await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), rascunhoRound2);
+
+    // Avança o gameState para TYPING_ROUND_2 no Firebase
+    await updateDoc(doc(db, "rooms", roomCode), {
+      gameState: "TYPING_ROUND_2",
+      activeTeam: "TIME_B",
+      currentRound: 2,
+      matchPhase: "PREPARE",
+    });
+  } else {
+    await set(ref(rtdb, `rooms/${roomCode}/liveData/phase`), "LOCK");
+    await updateDoc(doc(db, "rooms", roomCode), { gameState: "LEADERBOARD" });
+  }
+};
 
   if (!gameState) return <div className="h-screen w-screen bg-[#1C1C1C]" />;
 
@@ -114,52 +165,87 @@ export default function TelaoJogoPage() {
         <span className="font-mono text-[#FF6B35] text-2xl tracking-widest animate-pulse">LOBBY_MAINFRAME_ONLINE_</span>
       </div>
 
-      {/* 1. TELA DE LOBBY */}
       {gameState === "LOBBY" && (
         <TelaoLobbyScreen
           roomCode={roomCode}
-          players={players} 
+          players={sincronizedPlayers} 
           onStartGame={hostStartThemeVoting} 
         />
       )}
 
-      {/* 2. TELA DE CONTEXTO / VOTAÇÃO NATIVA */}
       {(gameState === "THEME_VOTING" || gameState === "CONTEXT_REVEAL") && (
         <TelaoContextScreen
           theme={roomData?.theme || "AGUARDANDO VOTAÇÃO..."}
           contextText={roomData?.contextText || ""}
-          players={players}
-          // Garante que o estado atual da sala seja passado para sumir o painel de votação no momento exato
+          players={sincronizedPlayers}
           currentGameState={gameState}
           onTimeoutVotacao={apurarEAvancarTema}
           onSequenceComplete={async () => {
-            if (roomData?.contextText) {
-              await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), roomData.contextText);
+            try {
+              const listaPapeis = ['NORMAL', 'HACKEADO', 'INVERSOR', 'BEBADO', 'MANDARIM'];
+              
+              const promises = sincronizedPlayers.map(async (player) => {
+                const papelSorteado = listaPapeis[Math.floor(Math.random() * listaPapeis.length)];
+                return set(ref(rtdb, `rooms/${roomCode}/liveData/players/${player.id}/secretRole`), papelSorteado);
+              });
+
+              await Promise.all(promises);
+
+              const temaDefinido = roomData?.theme || "CIBERSEGURANÇA NA UERN";
+              const fraseInicialEngracada = RESPOSTAS_INICIAIS[temaDefinido] || "Inicializando terminal...";
+              
+              await set(ref(rtdb, `rooms/${roomCode}/liveData/currentText`), fraseInicialEngracada);
+              await updateDoc(doc(db, "rooms", roomCode), { gameState: "TYPING_ROUND_1" });
+            } catch (error) {
+              console.error("Erro ao distribuir papéis caóticos no Realtime:", error);
             }
-            await updateDoc(doc(db, "rooms", roomCode), { gameState: "TYPING_ROUND_1" });
           }}
         />
       )}
 
-      {/* 3. TELA DE PARTIDA EM TEMPO REAL */}
       {gameState === "TYPING_ROUND_1" && (
         <TelaoMatchScreen
           currentRound={1}
-          activeTeam={roomData?.activeTeam || "TIME_A"}
-          theme={roomData?.theme || ""}
+          activeTeam={activeTeam}
+          theme={roomData?.theme || "SISTEMA"}
           contextText={roomData?.contextText}
-          currentText={currentText || roomData?.contextText || ""} 
-          timeLeft={30}
-          activeCursors={activeCursors} 
-          isTypingMap={isTypingMap} 
+          currentText={currentText}
+          timeLeft={60}
+          activeCursors={activeCursors.map(c => {
+            const match = sincronizedPlayers.find(p => p.id === c.playerId);
+            return { ...c, team: match?.team || "TIME_A" };
+          })}
+          onRoundComplete={handleNextRoundOrEnd}
+          hostStartTyping={hostStartTyping}   // ← ADICIONA
+          hostLockTyping={hostLockTyping}     // ← ADICIONA
         />
       )}
 
-      {/* 4. TELA DE RESULTADOS */}
+      {/* ROUND 2 — time B digita, time A vota */}
+      {gameState === "TYPING_ROUND_2" && (
+        <TelaoMatchScreen
+          currentRound={2}
+          activeTeam={roomData?.activeTeam || "TIME_B"}
+          theme={roomData?.theme || "SISTEMA"}
+          contextText={roomData?.contextText}
+          currentText={currentText}
+          timeLeft={60}
+          activeCursors={activeCursors.map(c => {
+            const match = sincronizedPlayers.find(p => p.id === c.playerId);
+            return { ...c, team: match?.team || "TIME_B" };
+          })}
+          onRoundComplete={handleNextRoundOrEnd}
+          hostStartTyping={hostStartTyping}
+          hostLockTyping={hostLockTyping}
+        />
+      )}
+
       {gameState === "RESULTS" && (
         <TelaoResultsScreen
-          rankings={players} 
+          rankings={sincronizedPlayers} 
           onNewGame={async () => {
+            setCurrentRound(1);
+            setActiveTeam("TIME_A");
             await updateDoc(doc(db, "rooms", roomCode), { gameState: "LOBBY", contextText: "", theme: "" });
           }}
         />

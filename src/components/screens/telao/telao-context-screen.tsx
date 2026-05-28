@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { rtdb } from '@/src/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 
 interface Player {
   id: string;
@@ -37,10 +39,36 @@ export default function TelaoContextScreen({
   const [timerProntidao, setTimerProntidao] = useState(TEMPO_LIMITE_PRONTIDAO);
   const [skitStep, setSkitStep] = useState(0);
 
-  // Contabiliza quantos players enviaram qualquer voto válido (não vazio)
-  const voteCount = players.filter(p => p.votedTheme && p.votedTheme.trim() !== "").length;
-  // Filtra a lista de IDs de players que já deram "Estou Pronto"
-  const readyPlayers = players.filter(p => p.isReadyForMatch === true).map(p => p.id);
+  // Estados locais reativos alimentados em tempo real pelo duto síncrono do Realtime Database
+  const [votosRealtime, setVotosRealtime] = useState<Record<string, string>>({});
+  const [prontosRealtime, setProntosRealtime] = useState<Record<string, boolean>>({});
+
+  // ESCUTA ATIVA DOS CLIQUES DO MOBILE VIA REALTIME DATABASE
+  useEffect(() => {
+    // Captura o código da sala direto da rota atual da janela de forma segura
+    const roomCode = window.location.pathname.split('/').pop();
+    if (!roomCode) return;
+
+    const liveRef = ref(rtdb, `rooms/${roomCode}/liveData`);
+    const unsubscribe = onValue(liveRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.votos) setVotosRealtime(data.votos);
+        if (data.prontos) setProntosRealtime(data.prontos);
+      } else {
+        setVotosRealtime({});
+        setProntosRealtime({});
+      }
+    });
+
+    return () => unsubscribe();
+  }, [step]);
+
+  // Contabiliza quantos players enviaram qualquer voto válido baseado no Realtime
+  const voteCount = players.filter(p => (votosRealtime[p.id] && votosRealtime[p.id].trim() !== "") || (p.votedTheme && p.votedTheme.trim() !== "")).length;
+  
+  // Filtra a lista de IDs de players que já deram "Estou Pronto" baseado no Realtime
+  const readyPlayers = players.filter(p => prontosRealtime[p.id] === true || p.isReadyForMatch === true).map(p => p.id);
 
   // Efeito 1: Texto de inicialização digitando na tela (sudo reboot)
   useEffect(() => {
@@ -71,7 +99,6 @@ export default function TelaoContextScreen({
   useEffect(() => {
     if (step !== -1) return;
 
-    // Se a sala avançar no banco por fora, acompanha imediatamente
     if (currentGameState === "CONTEXT_REVEAL") {
       setStep(0);
       return;
@@ -93,7 +120,6 @@ export default function TelaoContextScreen({
   // Efeito 4: Controle de exibição do tema sorteado (Passo 0) antes de ir para os papéis
   useEffect(() => {
     if (step === 0) {
-      // Deixa o tema e o contexto na tela por 5 segundos e depois abre a verificação de prontidão
       const timer = setTimeout(() => setStep(1), 5000);
       return () => clearTimeout(timer);
     }
@@ -109,7 +135,7 @@ export default function TelaoContextScreen({
       return;
     }
 
-    // Condição B: O tempo estourou (Timer de segurança para evitar travamento) -> Força o início do jogo
+    // Condição B: O tempo estourou -> Força o início do jogo
     if (timerProntidao <= 0) {
       setStep(2);
       return;
@@ -151,7 +177,6 @@ export default function TelaoContextScreen({
   const isFooterSmacked = skitStep >= 5;
   const isCenterSmacked = skitStep >= 7;
 
-  // Ajustes dinâmicos de animação dos avatares
   const getP1Position = () => {
     switch (true) {
       case skitStep === 0: return { top: '50%', left: '-20vw', rotate: '0deg' };
@@ -192,12 +217,11 @@ export default function TelaoContextScreen({
   const p2 = getP2Position();
   const lever = getLeverPosition();
 
-  // Define a largura percentual da barra de progresso com base na contagem real
   const barraPorcentagem = players.length > 0 ? (voteCount / players.length) * 100 : 0;
 
   return (
-    <main className={`h-screen w-screen font-sans select-none relative overflow-hidden flex flex-col justify-between p-8 md:p-12 transition-colors duration-200
-      ${skitStep >= 12 ? 'bg-[#EDEBE5]' : 'bg-[#1C1C1C] text-[#FF6B35]'}`}>
+    <main className={`h-screen w-screen bg-[#1C1C1C] text-[#FF6B35] font-sans select-none relative overflow-hidden flex flex-col justify-between p-8 md:p-12 transition-colors duration-200
+      ${skitStep >= 12 ? 'bg-[#EDEBE5]' : ''}`}>
       
       <style dangerouslySetInnerHTML={{__html: `
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
@@ -229,7 +253,7 @@ export default function TelaoContextScreen({
         </>
       )}
 
-      {/* CABEÇALHO INTEGRADO COM TIMERS DINÂMICOS */}
+      {/* CABEÇALHO INTEGRADO */}
       <div className={`border-b-[4px] border-[#FF6B35] pb-4 opacity-80 flex justify-between font-pixel text-xl tracking-widest uppercase transition-all origin-left
         ${isHeaderSmacked ? 'animate-fly-top' : ''}`}>
         <span>INCOMING_TRANSMISSION: ADMIN_SERVER_</span>
@@ -264,7 +288,6 @@ export default function TelaoContextScreen({
           </div>
         )}
 
-        {/* TELA DE VOTAÇÃO: CORRIGIDA REATIVIDADE DA BARRA E DO CONTADOR */}
         {step === -1 && (
           <div className="w-full max-w-3xl border-[4px] border-[#FF6B35] p-8 md:p-12 bg-black bg-opacity-40 animate-fade-in flex flex-col items-center relative">
             <h2 className="font-pixel text-3xl md:text-5xl tracking-widest uppercase mb-8 text-center animate-pulse border-b-[4px] border-dashed border-[#FF6B35] pb-4">[ SELEÇÃO_DE_CENÁRIO ]</h2>
@@ -284,7 +307,6 @@ export default function TelaoContextScreen({
           </div>
         )}
 
-        {/* EXIBIÇÃO DO ALVO E DO TEXTO DE CONTEXTO */}
         {step === 0 && (
           <div className="text-center animate-fade-in flex flex-col items-center max-w-4xl">
             <span className="font-pixel text-2xl md:text-3xl tracking-widest text-[#888] mb-4">// ESTABELECENDO_ALVO:</span>
@@ -301,7 +323,6 @@ export default function TelaoContextScreen({
           </div>
         )}
 
-        {/* ESPERA DOS PAPÉIS REATIVA COM ATUALIZAÇÃO DO STATUS DOS PLAYERS */}
         {(step === 1 || step === 2) && (
           <div className="w-full flex flex-col items-center animate-fade-in relative">
             <div className="text-center mb-12">

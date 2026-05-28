@@ -9,6 +9,8 @@ import {
 } from "firebase/database";
 import { rtdb } from "@/src/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
+// CORREÇÃO 1: db estava sendo usado mas não importado — causava crash silencioso no build
+import { db } from "@/src/lib/firebase";
 
 export interface Cursor {
   playerId: string;
@@ -16,6 +18,7 @@ export interface Cursor {
   color: string;
   avatar: string;
   position: number;
+  team?: string;
 }
 
 export function useSharedText(roomCode: string | null, uid: string | null) {
@@ -27,26 +30,23 @@ export function useSharedText(roomCode: string | null, uid: string | null) {
     if (!roomCode) return;
     const codeUpper = roomCode.toUpperCase();
 
-    // 1. Escutar a resposta do terminal (REPLY_)
     const textRef = ref(rtdb, `rooms/${codeUpper}/liveData/currentText`);
     const unsubText = onValue(textRef, (snap) => {
       if (snap.exists()) setCurrentText(snap.val());
     });
 
-    // 2. Escutar a posição dos Cursores dos jogadores
     const cursorsRef = ref(rtdb, `rooms/${codeUpper}/liveData/cursors`);
     const unsubCursors = onValue(cursorsRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
         setActiveCursors(
-          Object.keys(data).map((key) => ({ playerId: key, ...data[key] })),
+          Object.keys(data).map((key) => ({ playerId: key, ...data[key] }))
         );
       } else {
         setActiveCursors([]);
       }
     });
 
-    // 3. Escutar quem está a digitar (para animar as bocas ASCII)
     const typingRef = ref(rtdb, `rooms/${codeUpper}/liveData/isTyping`);
     const unsubTyping = onValue(typingRef, (snap) => {
       if (snap.exists()) setIsTypingMap(snap.val());
@@ -60,15 +60,12 @@ export function useSharedText(roomCode: string | null, uid: string | null) {
     };
   }, [roomCode]);
 
-  // Função para os Mobiles Injetarem Texto (Atomic Transaction)
   const injectTextDelta = async (delta: string, position: number) => {
     if (!roomCode || !delta) return;
     const textRef = ref(
       rtdb,
-      `rooms/${roomCode.toUpperCase()}/liveData/currentText`,
+      `rooms/${roomCode.toUpperCase()}/liveData/currentText`
     );
-
-    // Transaction garante que o texto não é sobrescrito, apenas costurado
     await runTransaction(textRef, (currentVal) => {
       if (currentVal === null) return currentVal;
       const safePos = Math.min(position, currentVal.length);
@@ -76,21 +73,25 @@ export function useSharedText(roomCode: string | null, uid: string | null) {
     });
   };
 
-  const updateCursor = async (position: number, playerInfo: any) => {
+  // CORREÇÃO 2: updateCursor agora aceita team para o Telão filtrar cursores por time
+  const updateCursor = async (
+    position: number,
+    playerInfo: { playerName: string; color: string; avatar: string; team?: string }
+  ) => {
     if (!roomCode || !uid) return;
     const cursorRef = ref(
       rtdb,
-      `rooms/${roomCode.toUpperCase()}/liveData/cursors/${uid}`,
+      `rooms/${roomCode.toUpperCase()}/liveData/cursors/${uid}`
     );
     await set(cursorRef, { position, ...playerInfo });
-    onDisconnect(cursorRef).remove(); // Desaparece se cair a net
+    onDisconnect(cursorRef).remove();
   };
 
   const setTypingStatus = async (isTyping: boolean) => {
     if (!roomCode || !uid) return;
     const typingRef = ref(
       rtdb,
-      `rooms/${roomCode.toUpperCase()}/liveData/isTyping/${uid}`,
+      `rooms/${roomCode.toUpperCase()}/liveData/isTyping/${uid}`
     );
     await set(typingRef, isTyping);
     onDisconnect(typingRef).remove();
@@ -99,22 +100,16 @@ export function useSharedText(roomCode: string | null, uid: string | null) {
   const injectTextDeltaWithAuthor = async (
     delta: string,
     position: number,
-    authorId: string,
+    authorId: string
   ) => {
     if (!roomCode || !delta) return;
-
-    // 1. Injeção visual no RTDB (O texto que o telão vê)
     await injectTextDelta(delta, position);
-
-    // 2. Persistência de Autoria no Firestore (O 'rastro' para o Scoring)
-    // Usamos um ID único baseado no tempo para cada inserção
     const wordId = `${Date.now()}`;
     const wordRef = doc(
       db,
       `rooms/${roomCode.toUpperCase()}/scoringPayload`,
-      wordId,
+      wordId
     );
-
     await setDoc(wordRef, {
       word: delta.trim(),
       authorId: authorId,
@@ -127,6 +122,7 @@ export function useSharedText(roomCode: string | null, uid: string | null) {
     activeCursors,
     isTypingMap,
     injectTextDelta,
+    injectTextDeltaWithAuthor,
     updateCursor,
     setTypingStatus,
   };

@@ -9,6 +9,10 @@ import {
 } from "firebase/firestore";
 import { db } from '@/src/lib/firebase';
 import { GameState } from "./useRoom";
+import { rtdb } from '@/src/lib/firebase';
+import { ref, set } from 'firebase/database';
+
+const AVAILABLE_ROLES = ["IRRITADO", "HACKEADO", "BEBADO", "MANDARIM"];
 
 export interface Player {
   id: string; // Corresponde ao uid do Auth
@@ -202,11 +206,29 @@ export function useGameFlow(roomCode: string | null) {
       currentRound: 1,
       theme: selectedTheme,
       contextText: contextTemplate,
-      activeTeam: "TIME_A", // No round 1, Time A digita
+      activeTeam: "TIME_A",
+      matchPhase: "PREPARE",  // No round 1, Time A digita
     });
 
     await batch.commit(); // Transação atómica garantida
   };
+
+  const hostStartTyping = async () => {
+    if (!roomCode) return;
+    await updateDoc(doc(db, "rooms", roomCode.toUpperCase()), {
+      matchPhase: "TYPING",
+    });
+  };
+
+  const hostLockTyping = async () => {
+    if (!roomCode) return;
+    const round = roomData?.currentRound || 1;
+    await updateDoc(doc(db, "rooms", roomCode.toUpperCase()), {
+      matchPhase: "LOCK",
+      gameState: round === 1 ? "TTS_ROUND_1" : "TTS_ROUND_2",
+    });
+  };
+
 
   const hostPerformSignalSwap = async (roomCode: string) => {
     const playersRef = collection(db, `rooms/${roomCode}/players`);
@@ -234,5 +256,7 @@ export function useGameFlow(roomCode: string | null) {
     players,
     hostStartThemeVoting,
     hostResolveThemeAndStartMatch,
+    hostStartTyping,    
+    hostLockTyping, 
   };
 }
