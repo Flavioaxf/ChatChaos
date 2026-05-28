@@ -11,7 +11,8 @@ interface ThemeVotingScreenProps {
 export function ThemeVotingScreen({
   playerName = 'HACKER_99',
   avatar = '(>_<)',
-  themes = ['SISTEMAS DA UERN', 'TI DO CAOS', 'FESTA DE SÃO JOÃO', 'GRUPO DA FAMÍLIA'],
+  // CORRIGIDO: Agora os temas batem 100% com o dicionário do Telão!
+  themes = ['CIBERSEGURANÇA NA UERN', 'GESTÃO E PROTEÇÃO ANIMAL'],
   onVoteTheme
 }: ThemeVotingScreenProps) {
   const [votedTheme, setVotedTheme] = useState<string | null>(null);
@@ -25,12 +26,10 @@ export function ThemeVotingScreen({
 
   return (
     <main className="h-[100dvh] w-full bg-[#EDEBE5] text-[#1C1C1C] flex flex-col font-sans p-4 sm:p-6 overflow-hidden select-none justify-between">
-      
       <style dangerouslySetInnerHTML={{__html: `
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=VT323&display=swap');
         .font-pixel { font-family: 'VT323', monospace !important; }
         .font-project-sans { font-family: 'DM Sans', sans-serif !important; }
-        
         .shadow-hard { box-shadow: 4px 4px 0px #1C1C1C; }
         .rounded-brutalist { border-radius: 8px !important; }
       `}} />
@@ -58,7 +57,7 @@ export function ThemeVotingScreen({
                 type="button"
                 disabled={hasVotedAny && !isSelected}
                 onClick={() => handleVote(themeOption)}
-                className={`w-full border-[4px] border-[#1C1C1C] rounded-brutalist p-4 text-left font-pixel text-2xl sm:text-3xl uppercase tracking-wider transition-all shadow-hard shrink-0
+                className={`w-full border-[4px] border-[#1C1C1C] rounded-brutalist p-4 text-left font-pixel text-xl sm:text-2xl uppercase tracking-wider transition-all shadow-hard shrink-0
                   ${isSelected 
                     ? 'bg-[#FF6B35] text-[#1C1C1C] translate-y-1 shadow-none' 
                     : 'bg-[#F7F5F0] text-[#1C1C1C] active:translate-y-1 active:shadow-none disabled:opacity-40'
@@ -79,7 +78,6 @@ export function ThemeVotingScreen({
           <span>SISTEMA PRONTO PARA CAPTURA</span>
         )}
       </div>
-
     </main>
   );
 }
